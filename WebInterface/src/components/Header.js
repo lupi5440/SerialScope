@@ -1,11 +1,13 @@
 // src/components/Header.js
 
 export function Header(currentPage) {
+    const base = import.meta.env.BASE_URL; // Obtiene la base configurada en vite.config.js
+    
     return `
 <nav class="navbar navbar-expand-lg navbar-dark shadow-lg sticky-top">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="/index.html">
-            <img src="/img/icono.png" alt="SerialScope"
+        <a class="navbar-brand d-flex align-items-center" href="${base}index.html">
+            <img src="${base}img/icono.png" alt="SerialScope"
                 style="height: 48px; margin-right: 16px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8)) brightness(1.3) contrast(1.3) saturate(1.4);">
             <span
                 style="background: linear-gradient(180deg, #0a1628 0%, #1e3a5f 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-size: 1.5rem; font-weight: 900; letter-spacing: 0.5px; filter: drop-shadow(0 2px 4px rgba(255, 255, 255, 0.8));">SerialScope</span>
@@ -16,29 +18,29 @@ export function Header(currentPage) {
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link ${currentPage === 'home' ? 'active' : ''}" href="/index.html">Inicio</a>
+                    <a class="nav-link ${currentPage === 'home' ? 'active' : ''}" href="${base}index.html">Inicio</a>
                 </li>
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
                         Sección informativa
                     </a>
                     <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="/pages/educacion.html">Fundamentos de comunicación</a></li>
+                        <li><a class="dropdown-item" href="${base}pages/educacion.html">Fundamentos de comunicación</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" href="/pages/uart.html">UART</a></li>
-                        <li><a class="dropdown-item" href="/pages/rs232.html">RS232</a></li>
-                        <li><a class="dropdown-item" href="/pages/i2c.html">I2C</a></li>
-                        <li><a class="dropdown-item" href="/pages/spi.html">SPI</a></li>
+                        <li><a class="dropdown-item" href="${base}pages/uart.html">UART</a></li>
+                        <li><a class="dropdown-item" href="${base}pages/rs232.html">RS232</a></li>
+                        <li><a class="dropdown-item" href="${base}pages/i2c.html">I2C</a></li>
+                        <li><a class="dropdown-item" href="${base}pages/spi.html">SPI</a></li>
                     </ul>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link ${currentPage === 'visualizacion' ? 'active' : ''}" href="/pages/visualizacion.html">Visualizador</a>
+                    <a class="nav-link ${currentPage === 'visualizacion' ? 'active' : ''}" href="${base}pages/visualizacion.html">Visualizador</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link ${currentPage === 'pruebas' ? 'active' : ''}" href="/pages/pruebas.html">Probador</a>
+                    <a class="nav-link ${currentPage === 'pruebas' ? 'active' : ''}" href="${base}pages/pruebas.html">Probador</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link ${currentPage === 'referencias' ? 'active' : ''}" href="/pages/referencias.html">Referencias</a>
+                    <a class="nav-link ${currentPage === 'referencias' ? 'active' : ''}" href="${base}pages/referencias.html">Referencias</a>
                 </li>
             </ul>
         </div>
