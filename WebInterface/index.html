@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="SerialScope - Potente herramienta de visualización y aprendizaje para protocolos seriales UART, I2C, SPI y RS232.">
+    <meta name="keywords"
+        content="SerialScope, ESP32, UART, I2C, SPI, RS232, Visualizador Serial, Protocolos de Comunicación">
+    <meta name="author" content="Juan Angel Serrano Carreño">
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://tu-usuario.github.io/tu-repo/">
+    <meta property="og:title" content="SerialScope - Visualizador de Protocolos Seriales">
+    <meta property="og:description"
+        content="Analiza y aprende protocolos de comunicación serial en tiempo real con una interfaz premium.">
+    <meta property="og:image" content="/img/Icono-arcoiris.png">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:title" content="SerialScope - Visualizador de Protocolos Seriales">
+    <meta property="twitter:description"
+        content="Analiza y aprende protocolos de comunicación serial en tiempo real con una interfaz premium.">
+    <meta property="twitter:image" content="/img/Icono-arcoiris.png">
+
+    <title>SerialScope | Inicio</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script type="module" src="/src/main.js"></script>
+</head>
+
+<body>
+
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+        <!-- Seccion de bienvenida -->
+        <div class="p-5 mb-5 bg-light rounded-3">
+            <div class="container-fluid py-5">
+                <div class="text-center mb-4">
+                    <img src="/img/Icono-arcoiris.png" alt="SerialScope"
+                        style="max-width: 300px; height: auto; filter: drop-shadow(0 0 20px rgba(102, 126, 234, 0.6));">
+                </div>
+                <h1 class="display-5 fw-bold mb-4">Bienvenido al visualizador de protocolos seriales</h1>
+                <p class="col-md-10 fs-4 mb-4">Herramienta informativa y de visualizacion para los protocolos de
+                    comunicación
+                    serial UART, I2C, SPI y RS232. Diseñada para el estudio y análisis de sistemas de comunicación
+                    digital.</p>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a class="btn btn-primary btn-lg" href="pages/educacion.html" role="button">
+                        Comenzar aprendizaje
+                    </a>
+                    <a class="btn btn-outline-primary btn-lg" href="pages/visualizacion.html" role="button">
+                        Ir al visualizador
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Características principales -->
+        <section class="mb-5">
+            <h2 class="text-center mb-5 display-6 fw-bold text-primary">¿Qué puedes hacer aquí?</h2>
+            <div class="row g-4 justify-content-center">
+                <div class="col-md-5">
+                    <div class="card h-100 border-success shadow-lg card-premium">
+                        <div class="card-body text-center p-4">
+                            <div class="ratio ratio-16x9 mb-3">
+                                <iframe src="https://www.youtube.com/embed/" title="Prueba de Sensores" allowfullscreen>
+                                </iframe>
+                            </div>
+                            <h5 class="card-title fw-bold text-success">Prueba Sensores</h5>
+                            <p class="card-text">Interactúa con sensores reales como el BMP180, TMP102 y MAX6675.
+                                Observa las <strong>conversaciones</strong> de datos y calibra tus dispositivos.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="card h-100 border-warning shadow-lg card-premium">
+                        <div class="card-body text-center p-4">
+                            <div class="ratio ratio-16x9 mb-3">
+                                <iframe src="https://www.youtube.com/embed/" title="Visualiza la Comunicación"
+                                    allowfullscreen>
+                                </iframe>
+                            </div>
+                            <h5 class="card-title fw-bold text-warning">Visualiza la Comunicación</h5>
+                            <p class="card-text">Analiza las señales físicas en un visualizador integrado.
+                                Comprende la sincronía de bits en los protocolos UART, I2C y SPI de forma visual.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Protocolos disponibles -->
+        <section class="mb-5">
+            <h2 class="text-center mb-5 display-6 fw-bold text-primary">Protocolos soportados</h2>
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="card protocol-card bg-light h-100">
+                        <div class="card-header bg-success text-white text-center">
+                            <h5 class="mb-0">RS232->UART</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-success mb-3 text-center">Universal Asynchronous Receiver-Transmitter</h6>
+                            <ul>
+                                <li>Comunicación asíncrona</li>
+                                <li>Punto a punto</li>
+                                <li>2 líneas (TX/RX)</li>
+                                <li>Simple y confiable</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card protocol-card bg-light h-100">
+                        <div class="card-header bg-danger text-white text-center">
+                            <h5 class="mb-0">I2C</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-danger mb-3 text-center">Inter-Integrated Circuit</h6>
+                            <ul>
+                                <li>Comunicación síncrona</li>
+                                <li>Multi-maestro/esclavo</li>
+                                <li>2 líneas (SDA/SCL)</li>
+                                <li>Direccionamiento</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-4">
+                    <div class="card protocol-card bg-light h-100">
+                        <div class="card-header bg-warning text-dark text-center">
+                            <h5 class="mb-0">SPI</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-warning mb-3 text-center">Serial Peripheral Interface</h6>
+                            <ul>
+                                <li>Alta velocidad</li>
+                                <li>Full-duplex</li>
+                                <li>4 líneas (SCK/MOSI/MISO/SS)</li>
+                                <li>Maestro-esclavo</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call to Action -->
+        <section class="text-center p-5 bg-light rounded-3">
+            <h3 class="mb-4 fw-bold">¿Listo para comenzar?</h3>
+            <p class="fs-5 mb-4">Domina los protocolos de comunicación serial con esta herramienta informativa
+            </p>
+            <a class="btn btn-primary btn-lg" href="pages/educacion.html" role="button">
+                Empezar ahora
+            </a>
+        </section>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RS232 - SerialScope</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script type="module" src="/src/main.js"></script>
+</head>
+
+<body>
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+        <!-- Hero Section -->
+        <div class="p-5 mb-5 bg-light rounded-3 text-center">
+            <h1 class="display-4 fw-bold text-success">RS232</h1>
+            <p class="lead">Recommended Standard 232 - Comunicación Serial Asíncrona</p>
+        </div>
+
+        <!-- RS232 Section -->
+        <section class="mb-5">
+            <div class="card border-success shadow-lg">
+                <div class="card-header bg-success text-white h4 text-center">
+                    <i class="bi bi-broadcast"></i> RS232 (Recommended Standard 232)
+                </div>
+                <div class="card-body">
+                    <h5 class="text-success mb-3">¿Qué es RS232?</h5>
+                    <p>RS232 es un estándar de comunicación <strong>asíncrono</strong> serial que utiliza dos
+                        líneas
+                        (TX para transmitir y RX para recibir) y se basa en la velocidad de
+                        <strong>baudios</strong> previamente acordada entre dispositivos. Es ampliamente usado
+                        en interfaces de comunicación de computadoras.
+                    </p>
+
+                    <!-- Videos de ejemplo -->
+                    <div class="row g-3 my-4 justify-content-center">
+                        <div class="col-md-5">
+                            <div class="card h-100 border-success">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/AHYNxpqKqwo" title="Ejemplo RS232 1"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Introducción al RS232</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-5">
+                            <div class="card h-100 border-success">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/IyGwvGzrqp8" title="Ejemplo RS232 2"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">RS232 estándar de comunicación</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-success mt-4 mb-3">Características principales:</h6>
+                    <ul>
+                        <li><strong>Asíncrono:</strong> No requiere señal de reloj compartida</li>
+                        <li><strong>Punto a punto:</strong> Comunicación entre dos dispositivos</li>
+                        <li><strong>Baudios configurables:</strong> 9600, 115200, etc.</li>
+                        <li><strong>Bits de inicio y parada:</strong> Sincronización de trama</li>
+                        <li><strong>Paridad opcional:</strong> Detección de errores</li>
+                        <li><strong>Niveles de voltaje:</strong> ±3V a ±15V (típicamente ±12V)</li>
+                        <li><strong>Distancia máxima:</strong> Hasta 15 metros a baja velocidad</li>
+                    </ul>
+
+                    <h6 class="text-success mt-4 mb-3">Estructura de la trama:</h6>
+                    <div class="p-3 bg-light rounded border">
+                        <code>START (1 bit) → DATA (5-9 bits) → PARITY (0-1 bit) → STOP (1-2 bits)</code>
+                    </div>
+
+                    <h6 class="text-success mt-4 mb-3">Configuraciones típicas:</h6>
+                    <div class="p-3 bg-light rounded border">
+                        <ul class="mb-0">
+                            <li><strong>8N1:</strong> 8 bits de datos, sin paridad, 1 bit de parada (más común)
+                            </li>
+                            <li><strong>7E1:</strong> 7 bits de datos, paridad par, 1 bit de parada</li>
+                            <li><strong>8E1:</strong> 8 bits de datos, paridad par, 1 bit de parada</li>
+                        </ul>
+                    </div>
+
+                    <h6 class="text-success mt-4 mb-3">Señales principales:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-success">
+                                <tr>
+                                    <th>Señal</th>
+                                    <th>Nombre</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>TX</strong></td>
+                                    <td>Transmit Data</td>
+                                    <td>Datos de transmisión</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>RX</strong></td>
+                                    <td>Receive Data</td>
+                                    <td>Datos de recepción</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>RTS</strong></td>
+                                    <td>Request To Send</td>
+                                    <td>Solicitud para enviar</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>CTS</strong></td>
+                                    <td>Clear To Send</td>
+                                    <td>Listo para enviar</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DTR</strong></td>
+                                    <td>Data Terminal Ready</td>
+                                    <td>Terminal de datos listo</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DSR</strong></td>
+                                    <td>Data Set Ready</td>
+                                    <td>Conjunto de datos listo</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Conectores RS232 -->
+                    <div class="mt-4">
+                        <h6 class="text-success mb-3">Conectores Físicos:</h6>
+                        <p>El estándar RS232 define dos tipos principales de conectores:</p>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <div class="card border-success h-100">
+                                    <div class="card-header bg-success text-white">
+                                        <strong>DB-9 (DE-9)</strong> - 9 pines
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center mb-3">
+                                            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Serial_port.jpg/300px-Serial_port.jpg"
+                                                alt="Conector DB-9" class="img-fluid rounded border"
+                                                style="max-width: 250px;">
+                                            <p class="small text-muted mt-2 mb-0"><em>Conector DB-9</em></p>
+                                        </div>
+                                        <p><strong>Uso:</strong> Más común en computadoras modernas y aplicaciones
+                                            básicas.</p>
+                                        <p class="mb-2"><strong>Ventajas:</strong></p>
+                                        <ul class="small">
+                                            <li>Más compacto y fácil de manejar</li>
+                                            <li>Suficiente para la mayoría de aplicaciones</li>
+                                            <li>Estándar en PCs desde los años 90</li>
+                                        </ul>
+                                        <p class="mb-2"><strong>Configuración de pines:</strong></p>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered mb-0">
+                                                <thead class="table-success">
+                                                    <tr>
+                                                        <th>Pin</th>
+                                                        <th>Señal</th>
+                                                        <th>Función</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="small">
+                                                    <tr>
+                                                        <td>1</td>
+                                                        <td>DCD</td>
+                                                        <td>Data Carrier Detect (Detección de portadora)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>2</td>
+                                                        <td>RX</td>
+                                                        <td>Receive Data (Recepción de datos)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>3</td>
+                                                        <td>TX</td>
+                                                        <td>Transmit Data (Transmisión de datos)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>4</td>
+                                                        <td>DTR</td>
+                                                        <td>Data Terminal Ready (Terminal listo)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>5</td>
+                                                        <td>GND</td>
+                                                        <td>Signal Ground (Tierra de señal)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>6</td>
+                                                        <td>DSR</td>
+                                                        <td>Data Set Ready (Conjunto de datos listo)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>7</td>
+                                                        <td>RTS</td>
+                                                        <td>Request To Send (Solicitud para enviar)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>8</td>
+                                                        <td>CTS</td>
+                                                        <td>Clear To Send (Listo para enviar)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>9</td>
+                                                        <td>RI</td>
+                                                        <td>Ring Indicator (Indicador de llamada)</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-success h-100">
+                                    <div class="card-header bg-success text-white">
+                                        <strong>DB-25</strong> - 25 pines
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="text-center mb-3">
+                                            <img src="https://pinoutdiagrams.com/wp-content/images/free-rkfbh-rs232-25-pin-connector-pinout.jpg"
+                                                alt="Conector DB-25" class="img-fluid rounded border"
+                                                style="max-width: 250px;">
+                                            <p class="small text-muted mt-2 mb-0"><em>Conector DB-25</em></p>
+                                        </div>
+                                        <p><strong>Uso:</strong> Estándar original, usado en equipos antiguos e
+                                            industriales.</p>
+                                        <p class="mb-2"><strong>Ventajas:</strong></p>
+                                        <ul class="small">
+                                            <li>Soporta todas las señales del estándar RS232</li>
+                                            <li>Permite control completo de hardware</li>
+                                            <li>Común en equipos industriales legacy</li>
+                                        </ul>
+                                        <p class="mb-2"><strong>Configuración de pines (principales):</strong></p>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered mb-0">
+                                                <thead class="table-success">
+                                                    <tr>
+                                                        <th>Pin</th>
+                                                        <th>Señal</th>
+                                                        <th>Función</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody class="small">
+                                                    <tr>
+                                                        <td>1</td>
+                                                        <td>FG</td>
+                                                        <td>Frame Ground (Tierra del chasis)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>2</td>
+                                                        <td>TX</td>
+                                                        <td>Transmit Data (Transmisión de datos)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>3</td>
+                                                        <td>RX</td>
+                                                        <td>Receive Data (Recepción de datos)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>4</td>
+                                                        <td>RTS</td>
+                                                        <td>Request To Send (Solicitud para enviar)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>5</td>
+                                                        <td>CTS</td>
+                                                        <td>Clear To Send (Listo para enviar)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>6</td>
+                                                        <td>DSR</td>
+                                                        <td>Data Set Ready (Conjunto de datos listo)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>7</td>
+                                                        <td>GND</td>
+                                                        <td>Signal Ground (Tierra de señal)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>8</td>
+                                                        <td>DCD</td>
+                                                        <td>Data Carrier Detect (Detección de portadora)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>20</td>
+                                                        <td>DTR</td>
+                                                        <td>Data Terminal Ready (Terminal listo)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td>22</td>
+                                                        <td>RI</td>
+                                                        <td>Ring Indicator (Indicador de llamada)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td colspan="3" class="text-center"><em>Pines 9-19, 21, 23-25:
+                                                                Señales secundarias y de sincronización</em></td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info">
+                            <strong><i class="bi bi-info-circle"></i> ¿Por qué existen dos versiones?</strong>
+                            <p class="mb-2 mt-2">El DB-25 fue el conector original definido en el estándar RS232 en
+                                1969,
+                                con 25 pines para soportar todas las señales de control posibles. Sin embargo, en la
+                                práctica,
+                                la mayoría de aplicaciones solo necesitan 9 señales básicas.</p>
+                            <p class="mb-0">En los años 80, IBM introdujo el conector DB-9 más compacto en sus
+                                computadoras
+                                personales, eliminando las señales raramente usadas. Esto se convirtió en el estándar de
+                                facto
+                                para PCs, aunque el DB-25 sigue siendo común en equipos industriales que requieren
+                                control
+                                completo de hardware.</p>
+                        </div>
+                    </div>
+
+
+                    <!-- Aplicaciones -->
+                    <div class="mt-4">
+                        <h6 class="text-success mb-3">Aplicaciones comunes:</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="alert alert-success">
+                                    <strong>Comunicación con PC:</strong> Terminales seriales, consolas de
+                                    depuración
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-success">
+                                    <strong>Equipos industriales:</strong> PLC, instrumentación, control de procesos
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-success">
+                                    <strong>Dispositivos embebidos:</strong> Microcontroladores, módems, GPS
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-success">
+                                    <strong>Automatización:</strong> Sistemas SCADA, control de máquinas
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call to Action -->
+        <section class="text-center p-5 bg-light rounded-3">
+            <h3 class="mb-4">¿Listo para experimentar con RS232?</h3>
+            <p class="fs-5 mb-4">Monitorea niveles de voltaje y tramas RS232/UART con nuestra herramienta.</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="visualizacion.html" class="btn btn-success btn-lg">Ir al visualizador</a>
+                <a href="referencias.html" class="btn btn-outline-success btn-lg">Ver referencias</a>
+                <a href="educacion.html" class="btn btn-outline-secondary btn-lg">Volver a fundamentos</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

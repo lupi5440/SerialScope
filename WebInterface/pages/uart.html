@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UART - SerialScope</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script type="module" src="/src/main.js"></script>
+</head>
+
+<body>
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+        <!-- Hero Section -->
+        <div class="p-5 mb-5 bg-light rounded-3 text-center">
+            <h1 class="display-4 fw-bold text-primary">UART</h1>
+            <p class="lead">Universal Asynchronous Receiver-Transmitter - Base de la Comunicación Serial Asíncrona</p>
+        </div>
+
+        <!-- UART Section -->
+        <section class="mb-5">
+            <div class="card border-primary shadow-lg">
+                <div class="card-header bg-primary text-white h4 text-center">
+                    <i class="bi bi-diagram-3"></i> UART (Universal Asynchronous Receiver-Transmitter)
+                </div>
+                <div class="card-body">
+                    <h5 class="text-primary mb-3">¿Qué es UART?</h5>
+                    <p>UART es un <strong>protocolo de comunicación serial asíncrono</strong> que convierte datos
+                        paralelos en datos seriales para su transmisión. A diferencia de RS232 (que es un estándar de
+                        señalización eléctrica), UART es el <strong>circuito físico o periférico</strong> que
+                        implementa la comunicación serial asíncrona.</p>
+
+                    <!-- Videos de ejemplo -->
+                    <div class="row g-3 my-4">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-primary">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/V6m2skVlsQI" title="Ejemplo UART 1"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Fundamentos de UART</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-primary">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/sTHckUyxwp8" title="Ejemplo UART 2"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Cómo funciona UART</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-primary">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/JuvWbRhhpdI" title="Ejemplo UART 3"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Implementación práctica UART</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary mt-4 mb-3">Diferencia entre UART y RS232:</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card h-100 border-primary">
+                                <div class="card-header bg-primary text-white">
+                                    <strong>UART</strong>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>Es el <strong>circuito o periférico</strong></li>
+                                        <li>Define el <strong>protocolo de comunicación</strong></li>
+                                        <li>Niveles lógicos TTL/CMOS (0-5V o 0-3.3V)</li>
+                                        <li>Convierte paralelo a serial</li>
+                                        <li>Integrado en microcontroladores</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card h-100 border-success">
+                                <div class="card-header bg-success text-white">
+                                    <strong>RS232</strong>
+                                </div>
+                                <div class="card-body">
+                                    <ul class="mb-0">
+                                        <li>Es el <strong>estándar eléctrico</strong></li>
+                                        <li>Define los <strong>niveles de voltaje</strong></li>
+                                        <li>Niveles ±3V a ±15V</li>
+                                        <li>Usa transceptor (ej: MAX232)</li>
+                                        <li>Para comunicación a mayor distancia</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <strong>Nota importante:</strong> UART maneja el protocolo de comunicación serial, mientras que
+                        RS232 define los niveles de voltaje para transmisión. Un transceptor RS232 convierte las
+                        señales UART (TTL/CMOS) a niveles RS232 para comunicación a mayor distancia.
+                    </div>
+
+                    <h6 class="text-primary mt-4 mb-3">Características principales:</h6>
+                    <ul>
+                        <li><strong>Asíncrono:</strong> No requiere señal de reloj compartida</li>
+                        <li><strong>Full-duplex:</strong> Transmisión y recepción simultáneas</li>
+                        <li><strong>Punto a punto:</strong> Comunicación directa entre dos dispositivos</li>
+                        <li><strong>Baud rate configurable:</strong> Velocidad acordada previamente</li>
+                        <li><strong>Frame personalizable:</strong> Bits de datos, paridad, stop bits</li>
+                        <li><strong>Niveles TTL/CMOS:</strong> Lógica digital estándar</li>
+                    </ul>
+
+                    <h6 class="text-primary mt-4 mb-3">Estructura del Frame UART:</h6>
+                    <div class="p-3 bg-light rounded border mb-3">
+                        <code style="font-size: 0.9rem;">
+                            IDLE (alto) → START bit (bajo) → DATA bits (5-9) → PARITY bit (opcional) → STOP bit(s) (1-2, alto) → IDLE
+                        </code>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>Campo</th>
+                                    <th>Duración</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>IDLE</strong></td>
+                                    <td>Variable</td>
+                                    <td>Línea en alto (1) cuando no hay transmisión</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>START bit</strong></td>
+                                    <td>1 bit</td>
+                                    <td>Transición de alto a bajo (1→0) indica inicio de trama</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DATA bits</strong></td>
+                                    <td>5-9 bits</td>
+                                    <td>Datos a transmitir (típicamente 8 bits)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>PARITY bit</strong></td>
+                                    <td>0-1 bit</td>
+                                    <td>Opcional: verificación de errores (par, impar, ninguno)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>STOP bit(s)</strong></td>
+                                    <td>1-2 bits</td>
+                                    <td>Línea en alto (1) marca fin de trama</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="text-primary mt-4 mb-3">Configuraciones comunes de UART:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-primary">
+                                <tr>
+                                    <th>Configuración</th>
+                                    <th>Data Bits</th>
+                                    <th>Parity</th>
+                                    <th>Stop Bits</th>
+                                    <th>Uso</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>8N1</strong></td>
+                                    <td>8</td>
+                                    <td>None (ninguna)</td>
+                                    <td>1</td>
+                                    <td>Más común en aplicaciones modernas</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>8N2</strong></td>
+                                    <td>8</td>
+                                    <td>None</td>
+                                    <td>2</td>
+                                    <td>Mayor tolerancia a variaciones de timing</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>8E1</strong></td>
+                                    <td>8</td>
+                                    <td>Even (par)</td>
+                                    <td>1</td>
+                                    <td>Con detección de errores</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>8O1</strong></td>
+                                    <td>8</td>
+                                    <td>Odd (impar)</td>
+                                    <td>1</td>
+                                    <td>Con detección de errores</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>7E1</strong></td>
+                                    <td>7</td>
+                                    <td>Even</td>
+                                    <td>1</td>
+                                    <td>ASCII de 7 bits con paridad</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="text-primary mt-4 mb-3">Velocidades de Baud Rate comunes:</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="fw-bold">Baud Rates Estándar:</h6>
+                                <ul class="small mb-0">
+                                    <li><strong>9600</strong> - Más común, muy confiable</li>
+                                    <li><strong>19200</strong> - Velocidad media</li>
+                                    <li><strong>38400</strong> - Velocidad media-alta</li>
+                                    <li><strong>57600</strong> - Alta velocidad</li>
+                                    <li><strong>115200</strong> - Muy alta velocidad</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="fw-bold">Otros Baud Rates:</h6>
+                                <ul class="small mb-0">
+                                    <li>300, 1200, 2400, 4800 - Velocidades lentas (legacy)</li>
+                                    <li>230400, 460800, 921600 - Muy altas velocidades</li>
+                                    <li>1000000, 2000000 - Ultra alta velocidad</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning mt-3">
+                        <strong>Importante:</strong> Ambos dispositivos UART deben estar configurados con el mismo
+                        baud rate, número de bits de datos, paridad y bits de parada para comunicarse correctamente.
+                    </div>
+
+                    <!-- Conexiones UART -->
+                    <div class="mt-4">
+                        <h6 class="text-primary mb-3">Conexiones UART:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead class="table-primary">
+                                    <tr>
+                                        <th>Señal</th>
+                                        <th>Nombre</th>
+                                        <th>Dirección</th>
+                                        <th>Descripción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>TX</strong></td>
+                                        <td>Transmit</td>
+                                        <td>Salida</td>
+                                        <td>Transmite datos del dispositivo</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>RX</strong></td>
+                                        <td>Receive</td>
+                                        <td>Entrada</td>
+                                        <td>Recibe datos hacia el dispositivo</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>GND</strong></td>
+                                        <td>Ground</td>
+                                        <td>-</td>
+                                        <td>Referencia común de voltaje</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="alert alert-info">
+                            <strong>Nota importante:</strong> TX de un dispositivo se conecta a RX del otro y
+                            viceversa. GND debe ser común entre ambos dispositivos.
+                        </div>
+                    </div>
+
+                    <!-- Funcionamiento con el dispositivo -->
+                    <div class="mt-5 mb-5">
+                        <h6 class="text-primary mb-4 fw-bold"><i class="bi bi-play-circle-fill"></i> Funcionamiento con
+                            el dispositivo:</h6>
+                        <div class="row g-4 justify-content-center">
+                            <!-- Video 1: Proxy Mode -->
+                            <div class="col-md-5">
+                                <div class="card h-100 border-primary shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/tZkevnGAm7Q"
+                                            title="Comunicación en modo Proxy" allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">Modo Proxy y Señales</h6>
+                                        <p class="card-text x-small text-muted mb-0">Visualización de la comunicación
+                                            UART interceptada en modo Proxy.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Video 2: Chat Mode -->
+                            <div class="col-md-5">
+                                <div class="card h-100 border-primary shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/AIweXZsvzc8"
+                                            title="Comunicación Chat UART" allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">Chat vía UART</h6>
+                                        <p class="card-text x-small text-muted mb-0">Demostración de envío y recepción
+                                            de mensajes de texto.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ventajas y Desventajas -->
+                    <div class="mt-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <h6 class="text-success fw-bold">Ventajas</h6>
+                                    <ul class="small">
+                                        <li>Muy simple de implementar</li>
+                                        <li>Solo 2 líneas de datos (TX/RX) + GND</li>
+                                        <li>Full-duplex (transmisión simultánea)</li>
+                                        <li>No requiere reloj compartido</li>
+                                        <li>Ampliamente soportado</li>
+                                        <li>Bajo costo</li>
+                                        <li>Paridad opcional para detección de errores</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <h6 class="text-danger fw-bold">Desventajas</h6>
+                                    <ul class="small">
+                                        <li>Solo punto a punto (un maestro, un esclavo)</li>
+                                        <li>Requiere configuración previa idéntica</li>
+                                        <li>Sensible a errores de sincronización</li>
+                                        <li>Overhead de bits (START, STOP, PARITY)</li>
+                                        <li>Distancia limitada (sin RS232)</li>
+                                        <li>Velocidad limitada comparada con SPI</li>
+                                        <li>Sin control de flujo inherente</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aplicaciones -->
+                    <div class="mt-4">
+                        <h6 class="text-primary mb-3">Aplicaciones comunes de UART:</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <strong>Depuración:</strong> Consola serial, logs de sistema, debugging de
+                                    microcontroladores
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <strong>Módulos de comunicación:</strong> GPS, Bluetooth, WiFi, GSM/GPRS
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <strong>Sensores:</strong> Módulos de sensores seriales (ultrasonido, CO2, etc.)
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <strong>Comunicación entre MCUs:</strong> Arduino, ESP32, STM32, Raspberry Pi
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <strong>Periféricos:</strong> Teclados, ratones, pantallas seriales
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-primary">
+                                    <strong>Industrial:</strong> Modbus RTU, instrumentación, control de equipos
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cálculo de timing -->
+                    <div class="mt-4">
+                        <h6 class="text-primary mb-3">Cálculo de tiempo de transmisión:</h6>
+                        <div class="p-3 bg-light rounded border">
+                            <p class="mb-2"><strong>Fórmula:</strong></p>
+                            <code>Tiempo por bit = 1 / Baud Rate</code><br>
+                            <code>Tiempo por frame = (START + DATA + PARITY + STOP) / Baud Rate</code>
+                            <p class="mt-3 mb-2"><strong>Ejemplo con configuración 8N1 a 9600 baudios:</strong></p>
+                            <ul class="small mb-0">
+                                <li>Tiempo por bit = 1 / 9600 = 104.16 µs</li>
+                                <li>Bits por frame = 1 (START) + 8 (DATA) + 0 (PARITY) + 1 (STOP) = 10 bits</li>
+                                <li>Tiempo por frame = 10 × 104.16 µs = <strong>1.041 ms</strong></li>
+                                <li>Bytes por segundo ≈ 960 bytes/s (9600 / 10)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call to Action -->
+        <section class="text-center p-5 bg-light rounded-3">
+            <h3 class="mb-4">¿Listo para experimentar con UART?</h3>
+            <p class="fs-5 mb-4">Visualiza y analiza el tráfico UART con nuestra herramienta.</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="visualizacion.html" class="btn btn-primary btn-lg">Ir al visualizador</a>
+                <a href="referencias.html" class="btn btn-outline-primary btn-lg">Ver referencias</a>
+                <a href="educacion.html" class="btn btn-outline-secondary btn-lg">Volver a fundamentos</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

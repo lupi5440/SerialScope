@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SerialScope - Educación</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script type="module" src="/src/main.js"></script>
+</head>
+
+<body>
+
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+
+        <!-- Fundamentos de Comunicación -->
+        <section class="mb-5">
+            <h2 class="text-center mb-4 display-6 fw-bold text-primary">Fundamentos de comunicación</h2>
+
+            <!-- Comunicación Serial vs Paralela -->
+            <div class="card mb-4 border-primary shadow-lg">
+                <div class="card-header bg-primary text-white h4">
+                    Comunicación Serial vs Paralela
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h5 class="text-primary mb-3">Comunicación Serial</h5>
+                            <p>En la comunicación serial, los datos se transmiten <strong>bit por bit</strong> a través
+                                de un solo canal o línea de comunicación.</p>
+                            <h6 class="fw-bold mt-3">Ventajas:</h6>
+                            <ul>
+                                <li>Menos cables requeridos</li>
+                                <li>Menor costo de implementación</li>
+                                <li>Ideal para largas distancias</li>
+                                <li>Menos interferencia electromagnética</li>
+                                <li>Más fácil de expandir</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Desventajas:</h6>
+                            <ul>
+                                <li>Menor velocidad de transferencia</li>
+                                <li>Más compleja de sincronizar</li>
+                            </ul>
+                            <div class="alert alert-info mt-3">
+                                <strong>Ejemplos:</strong> I2C, SPI, USB, RS-232
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h5 class="text-success mb-3">Comunicación Paralela</h5>
+                            <p>En la comunicación paralela, múltiples bits se transmiten
+                                <strong>simultáneamente</strong> a través de múltiples canales o líneas.
+                            </p>
+                            <h6 class="fw-bold mt-3">Ventajas:</h6>
+                            <ul>
+                                <li>Mayor velocidad de transferencia</li>
+                                <li>Transmisión simultánea de datos</li>
+                                <li>Más simple a cortas distancias</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Desventajas:</h6>
+                            <ul>
+                                <li>Muchos cables requeridos</li>
+                                <li>Mayor costo</li>
+                                <li>Problemas de sincronización</li>
+                                <li>No apta para largas distancias</li>
+                                <li>Mayor interferencia electromagnética</li>
+                            </ul>
+                            <div class="alert alert-warning mt-3">
+                                <strong>Ejemplos:</strong> Bus de datos de CPU, Puerto paralelo (obsoleto), RAM
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comunicación Síncrona vs Asíncrona -->
+            <div class="card mb-4 border-info shadow-lg">
+                <div class="card-header bg-info text-white h4">
+                    Comunicación Síncrona vs Asíncrona
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <h5 class="text-info mb-3">Comunicación Síncrona</h5>
+                            <p>La comunicación síncrona utiliza una <strong>señal de reloj compartida</strong> entre el
+                                transmisor y el receptor para sincronizar la transferencia de datos.</p>
+                            <h6 class="fw-bold mt-3">Características:</h6>
+                            <ul>
+                                <li>Requiere señal de reloj (CLK)</li>
+                                <li>Sincronización precisa</li>
+                                <li>Mayor velocidad de transferencia</li>
+                                <li>Transmisión continua de datos</li>
+                                <li>Más compleja de implementar</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Ventajas:</h6>
+                            <ul>
+                                <li>Mayor eficiencia en transmisión</li>
+                                <li>Menor overhead de bits</li>
+                                <li>Velocidades más altas</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Desventajas:</h6>
+                            <ul>
+                                <li>Requiere línea adicional de reloj</li>
+                                <li>Ambos dispositivos deben estar sincronizados</li>
+                            </ul>
+                            <div class="alert alert-info mt-3">
+                                <strong>Ejemplos:</strong> I2C, SPI
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <h5 class="text-danger mb-3">Comunicación Asíncrona</h5>
+                            <p>La comunicación asíncrona <strong>no requiere señal de reloj compartida</strong>. Los
+                                dispositivos deben acordar previamente la velocidad de comunicación.</p>
+                            <h6 class="fw-bold mt-3">Características:</h6>
+                            <ul>
+                                <li>No requiere señal de reloj</li>
+                                <li>Usa bits de inicio/parada</li>
+                                <li>Menor velocidad relativa</li>
+                                <li>Velocidad preconfigurada (baudios)</li>
+                                <li>Más simple de implementar</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Ventajas:</h6>
+                            <ul>
+                                <li>Menos cables requeridos</li>
+                                <li>Implementación más simple</li>
+                                <li>Flexible en cuanto a timing</li>
+                            </ul>
+                            <h6 class="fw-bold mt-3">Desventajas:</h6>
+                            <ul>
+                                <li>Mayor overhead (bits de control)</li>
+                                <li>Velocidades más limitadas</li>
+                                <li>Posible desincronización</li>
+                            </ul>
+                            <div class="alert alert-warning mt-3">
+                                <strong>Ejemplos:</strong> RS-232 / UART
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ¿Para qué sirven los protocolos? -->
+            <div class="card mb-4 border-success shadow-lg">
+                <div class="card-header bg-success text-white h4">
+                    ¿Para qué sirven los protocolos de comunicación?
+                </div>
+                <div class="card-body">
+                    <p class="lead mb-4">Los protocolos de comunicación son <strong>conjuntos de reglas y
+                            estándares</strong> que permiten la transmisión confiable de datos entre dispositivos
+                        electrónicos.</p>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5 class="text-success mb-3">Funciones principales:</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item">
+                                    <strong>Estandarización:</strong> Establecen reglas comunes para que diferentes
+                                    dispositivos puedan comunicarse sin importar el fabricante.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Control de errores:</strong> Detectan y corrigen errores en la
+                                    transmisión de datos mediante bits de paridad, checksums o CRC.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Sincronización:</strong> Aseguran que el transmisor y receptor estén
+                                    coordinados en tiempo y velocidad.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Direccionamiento:</strong> Permiten identificar el destinatario correcto
+                                    en sistemas multi-dispositivo.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Control de flujo:</strong> Regulan la velocidad de transmisión para
+                                    evitar saturación del receptor.
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h5 class="text-success mb-3">Aplicaciones prácticas:</h5>
+                            <ul class="list-group">
+                                <li class="list-group-item">
+                                    <strong>IoT y Sensores:</strong> Comunicación entre microcontroladores y sensores
+                                    (temperatura, humedad, presión).
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Almacenamiento:</strong> Comunicación con memorias EEPROM, tarjetas SD,
+                                    memorias flash.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Periféricos:</strong> Conexión de displays, teclados, módulos GPS,
+                                    Bluetooth.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Industrial:</strong> Control de maquinaria, sistemas SCADA, PLCs.
+                                </li>
+                                <li class="list-group-item">
+                                    <strong>Automotriz:</strong> Sistemas de diagnóstico, sensores vehiculares, CAN
+                                    bus.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-success mt-4">
+                        <h6 class="alert-heading">¿Por qué son importantes?</h6>
+                        <p class="mb-0">Sin protocolos estandarizados, cada fabricante tendría su propio método de
+                            comunicación, haciendo imposible la interoperabilidad entre dispositivos. Los protocolos
+                            garantizan que un sensor de un fabricante pueda comunicarse con un microcontrolador de otro
+                            fabricante, siempre que ambos cumplan con el mismo estándar.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+
+        <!-- Tabla comparativa -->
+        <section class="mb-5">
+            <h2 class="text-center mb-4 display-6 fw-bold text-primary">Comparativa de Protocolos</h2>
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead class="table-primary">
+                        <tr>
+                            <th>Característica</th>
+                            <th class="text-success"><a href="rs232.html" class="text-success text-decoration-none">UART
+                                </a></th>
+                            <th class="text-danger"><a href="i2c.html" class="text-danger text-decoration-none">I2C</a>
+                            </th>
+                            <th class="text-warning"><a href="spi.html"
+                                    class="text-warning text-decoration-none">SPI</a></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Tipo</strong></td>
+                            <td>Asíncrono</td>
+                            <td>Síncrono</td>
+                            <td>Síncrono</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Líneas de señal</strong></td>
+                            <td>2 (TX, RX)</td>
+                            <td>2 (SDA, SCL)</td>
+                            <td>4+ (SCK, MOSI, MISO, SS)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Dispositivos</strong></td>
+                            <td>2 (punto a punto)</td>
+                            <td>Múltiples (hasta 127)</td>
+                            <td>Múltiples (1 SS por esclavo)</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Velocidad típica</strong></td>
+                            <td>9600 - 115200 baudios</td>
+                            <td>100 kHz - 3.4 MHz</td>
+                            <td>Hasta 10+ MHz</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Complejidad</strong></td>
+                            <td>Baja</td>
+                            <td>Media</td>
+                            <td>Media-Alta</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Casos de uso</strong></td>
+                            <td>GPS, Bluetooth, módems</td>
+                            <td>Sensores, EEPROMs, RTC</td>
+                            <td>Displays, SD cards, ADC/DAC</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Sincronización</strong></td>
+                            <td>Asíncrona (bits inicio/parada)</td>
+                            <td>Síncrona (señal SCL)</td>
+                            <td>Síncrona (señal SCK)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- CTA -->
+        <div class="text-center p-5 bg-light rounded-3">
+            <h3 class="mb-4 fw-bold">¿Listo para practicar?</h3>
+            <p class="fs-5 mb-4">Pon en práctica lo aprendido con nuestro visualizador</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a class="btn btn-primary btn-lg" href="visualizacion.html" role="button">
+                    Ir al visualizador
+                </a>
+                <a class="btn btn-outline-primary btn-lg" href="referencias.html" role="button">
+                    Ver referencias
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

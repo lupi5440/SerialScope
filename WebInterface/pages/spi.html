@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPI - SerialScope</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script type="module" src="/src/main.js"></script>
+</head>
+
+<body>
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+        <!-- Hero Section -->
+        <div class="p-5 mb-5 bg-light rounded-3 text-center">
+            <h1 class="display-4 fw-bold text-warning">SPI</h1>
+            <p class="lead">Serial Peripheral Interface - Comunicación Serial Síncrona de Alta Velocidad</p>
+        </div>
+
+        <!-- SPI Section -->
+        <section class="mb-5">
+            <div class="card border-warning shadow-lg">
+                <div class="card-header bg-warning text-dark h4 text-center">
+                    <i class="bi bi-lightning"></i> SPI (Serial Peripheral Interface)
+                </div>
+                <div class="card-body">
+                    <h5 class="text-warning mb-3">¿Qué es SPI?</h5>
+                    <p>SPI es un protocolo de comunicación <strong>síncrono</strong> de alta velocidad que opera
+                        en modo <strong>full-duplex</strong>. Utiliza cuatro líneas y es ideal para aplicaciones
+                        que requieren transferencias rápidas de datos. Desarrollado por Motorola.</p>
+
+                    <!-- Videos de ejemplo -->
+                    <div class="row g-3 my-4">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-warning">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/0nVNwozXsIc" title="Ejemplo SPI 1"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Explicación básica de SPI</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-warning">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/fvOAbDMzoks" title="Ejemplo SPI 2"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Modos de operación SPI</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-warning">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/MCi7dCBhVpQ" title="Ejemplo SPI 3"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Implementación práctica SPI</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-warning mt-4 mb-3">Características principales:</h6>
+                    <ul>
+                        <li><strong>Full-duplex:</strong> Transmisión simultánea en ambas direcciones</li>
+                        <li><strong>Alta velocidad:</strong> Hasta varios MHz (10+ MHz típico)</li>
+                        <li><strong>4 líneas:</strong> SCK, MOSI, MISO, SS/CS</li>
+                        <li><strong>Sin direccionamiento:</strong> Selección por línea SS</li>
+                        <li><strong>Modos 0-3:</strong> Configuración CPOL/CPHA</li>
+                        <li><strong>Maestro-Esclavo:</strong> Un maestro controla la comunicación</li>
+                    </ul>
+
+                    <h6 class="text-warning mt-4 mb-3">Líneas de comunicación:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-warning">
+                                <tr>
+                                    <th>Señal</th>
+                                    <th>Nombre Completo</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>SCK</strong></td>
+                                    <td>Serial Clock</td>
+                                    <td>Reloj generado por maestro</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>MOSI</strong></td>
+                                    <td>Master Out Slave In</td>
+                                    <td>Datos del maestro al esclavo</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>MISO</strong></td>
+                                    <td>Master In Slave Out</td>
+                                    <td>Datos del esclavo al maestro</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>SS/CS</strong></td>
+                                    <td>Slave Select / Chip Select</td>
+                                    <td>Selección de dispositivo esclavo</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="text-warning mt-4 mb-3">Modos de operación SPI:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-warning">
+                                <tr>
+                                    <th>Modo</th>
+                                    <th>CPOL</th>
+                                    <th>CPHA</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Modo 0</strong></td>
+                                    <td>0</td>
+                                    <td>0</td>
+                                    <td>Reloj inactivo bajo, muestreo en flanco ascendente</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Modo 1</strong></td>
+                                    <td>0</td>
+                                    <td>1</td>
+                                    <td>Reloj inactivo bajo, muestreo en flanco descendente</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Modo 2</strong></td>
+                                    <td>1</td>
+                                    <td>0</td>
+                                    <td>Reloj inactivo alto, muestreo en flanco descendente</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Modo 3</strong></td>
+                                    <td>1</td>
+                                    <td>1</td>
+                                    <td>Reloj inactivo alto, muestreo en flanco ascendente</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-warning mt-3">
+                        <strong>Importante:</strong> Cada esclavo requiere su propia línea SS/CS. El maestro
+                        y esclavo deben usar el mismo modo SPI.
+                    </div>
+
+                    <h6 class="text-warning mt-4 mb-3">Estructura de la trama SPI:</h6>
+                    <div class="alert alert-info">
+                        <p class="mb-2"><strong>SPI no tiene una estructura de trama fija como I2C o UART.</strong> La
+                            transmisión es continua bit a bit mientras SS/CS está activo.</p>
+                        <p class="mb-0">La interpretación de los datos depende completamente del dispositivo esclavo y
+                            su protocolo específico.</p>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-warning">
+                                <tr>
+                                    <th>Fase</th>
+                                    <th>Descripción</th>
+                                    <th>Duración</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>1. SS/CS Activo</strong></td>
+                                    <td>El maestro activa la línea SS/CS del esclavo deseado (generalmente llevándola a
+                                        nivel bajo)</td>
+                                    <td>Variable</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>2. Transmisión de datos</strong></td>
+                                    <td>El maestro genera pulsos de reloj (SCK). En cada pulso:<br>
+                                        - Maestro envía 1 bit por MOSI<br>
+                                        - Esclavo envía 1 bit por MISO<br>
+                                        - Transmisión simultánea (full-duplex)</td>
+                                    <td>8, 16, o N bits (según dispositivo)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>3. SS/CS Inactivo</strong></td>
+                                    <td>El maestro desactiva SS/CS (generalmente nivel alto), finalizando la transacción
+                                    </td>
+                                    <td>Hasta próxima transacción</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="text-warning mt-4 mb-3">Características de la transmisión:</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="card border-warning h-100">
+                                <div class="card-header bg-warning text-dark">
+                                    <strong>Orden de bits</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>MSB First (más común):</strong></p>
+                                    <ul class="small">
+                                        <li>Bit más significativo primero</li>
+                                        <li>Estándar en la mayoría de dispositivos</li>
+                                        <li>Ejemplo: 0b10110011 → 1,0,1,1,0,0,1,1</li>
+                                    </ul>
+                                    <p class="mb-0"><strong>LSB First:</strong></p>
+                                    <ul class="small mb-0">
+                                        <li>Bit menos significativo primero</li>
+                                        <li>Menos común, algunos displays</li>
+                                        <li>Ejemplo: 0b10110011 → 1,1,0,0,1,1,0,1</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-warning h-100">
+                                <div class="card-header bg-warning text-dark">
+                                    <strong>Tamaño de palabra</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Longitud de datos por transacción:</strong></p>
+                                    <ul class="small mb-0">
+                                        <li><strong>8 bits:</strong> Más común, un byte por transacción</li>
+                                        <li><strong>16 bits:</strong> Usado en conversores ADC/DAC de alta resolución
+                                        </li>
+                                        <li><strong>24 bits:</strong> Codecs de audio, sensores de precisión</li>
+                                        <li><strong>32 bits:</strong> Procesamiento de datos complejos</li>
+                                        <li><strong>Variable:</strong> Algunos dispositivos aceptan longitud arbitraria
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-warning mt-4 mb-3">Configuraciones:</h6>
+                    <div class="p-3 bg-light rounded border">
+                        <ul class="mb-0">
+                            <li><strong>CPOL (Clock Polarity):</strong> Define el nivel inactivo del reloj
+                                (0=bajo, 1=alto)</li>
+                            <li><strong>CPHA (Clock Phase):</strong> Define en qué flanco se muestrean los datos
+                                (0=primero, 1=segundo)</li>
+                            <li><strong>Bit Order:</strong> MSB primero o LSB primero</li>
+                        </ul>
+                    </div>
+
+                    <!-- Funcionamiento con el dispositivo -->
+                    <div class="mt-5">
+                        <h6 class="text-warning mb-4 fw-bold"><i class="bi bi-play-circle-fill"></i> Funcionamiento con el dispositivo:</h6>
+                        <div class="row row-cols-1 row-cols-md-2 g-4">
+                            <!-- Video 1: MAX6675 Prueba -->
+                            <div class="col">
+                                <div class="card h-100 border-warning shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/cR9FcPZ3d3c" title="SPI Sensor MAX6675 Prueba"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">Prueba Sensor MAX6675</h6>
+                                        <p class="card-text x-small text-muted mb-0">Lectura de temperatura real usando el termopar MAX6675 vía bus SPI.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Video 2: MAX6675 Sniffing -->
+                            <div class="col">
+                                <div class="card h-100 border-warning shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/B2ycyk4EPao" title="SPI MAX6675 Sniffing"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">MAX6675 Sniffing</h6>
+                                        <p class="card-text x-small text-muted mb-0">Captura pasiva (sniffing) y decodificación de la trama binaria del MAX6675.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Video 3: TFT Visualización -->
+                            <div class="col">
+                                <div class="card h-100 border-warning shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/3f4pt7CVks0" title="SPI TFT Visualización"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">TFT Visualización</h6>
+                                        <p class="card-text x-small text-muted mb-0">Demostración de la interfaz gráfica en la pantalla ST7735.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Video 4: TFT Prueba -->
+                            <div class="col">
+                                <div class="card h-100 border-warning shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/qZLnaXPr5tg" title="SPI TFT Prueba"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">Prueba de Pantalla TFT</h6>
+                                        <p class="card-text x-small text-muted mb-0">Control dinámico y actualización de la pantalla TFT a través de comandos SPI.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aplicaciones -->
+                    <div class="mt-4">
+                        <h6 class="text-warning mb-3">Aplicaciones comunes:</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="alert alert-warning">
+                                    <strong>Memorias:</strong> Flash, EEPROM, SD Cards
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-warning">
+                                    <strong>Displays:</strong> TFT, OLED de alta velocidad
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-warning">
+                                    <strong>Comunicación RF:</strong> Módulos inalámbricos, transceptores
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-warning">
+                                    <strong>Conversores:</strong> ADC/DAC de alta velocidad
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ventajas y Desventajas -->
+                    <div class="mt-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <h6 class="text-success fw-bold">Ventajas</h6>
+                                    <ul class="small">
+                                        <li>Alta velocidad de transferencia</li>
+                                        <li>Full-duplex (simultáneo)</li>
+                                        <li>No requiere direccionamiento</li>
+                                        <li>Simple implementación hardware</li>
+                                        <li>Sin limitación de velocidad por protocolo</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border h-100">
+                                    <h6 class="text-danger fw-bold">Desventajas</h6>
+                                    <ul class="small">
+                                        <li>Más cables (4 mínimo + 1 por esclavo)</li>
+                                        <li>No hay confirmación ACK</li>
+                                        <li>Distancias cortas</li>
+                                        <li>Un solo maestro</li>
+                                        <li>Sin detección de errores</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Call to Action -->
+        <section class="text-center p-5 bg-light rounded-3">
+            <h3 class="mb-4">¿Listo para experimentar con SPI?</h3>
+            <p class="fs-5 mb-4">Analiza transferencias SPI con nuestro visualizador.</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="visualizacion.html" class="btn btn-warning btn-lg">Ir al visualizador</a>
+                <a href="referencias.html" class="btn btn-outline-warning btn-lg">Ver referencias</a>
+                <a href="educacion.html" class="btn btn-outline-secondary btn-lg">Volver a fundamentos</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

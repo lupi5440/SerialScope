@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Probador - SerialScope</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/pruebas.js"></script>
+</head>
+
+<body>
+
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+        <div class="text-center mb-5">
+            <h1 class="display-4 fw-bold text-success mb-3">Probador</h1>
+        </div>
+
+        <!-- Guía rápida de Uso -->
+        <section class="mb-5">
+            <div class="alert alert-light shadow-lg border border-success" style="border-width: 2px !important;">
+                <h2 class="alert-heading text-success fw-bold text-center display-6 mb-4">
+                    <i class="bi bi-book"></i> Guía Rápida de Uso
+                </h2>
+                <hr class="border-success">
+                <ul class="mb-0 text-dark">
+                    <li class="mb-2"><strong class="text-success">Paso 1:</strong> Conéctate al dispositivo bluetooth
+                        (SerialScope Pruebas Master), luego pulsa el botón de conexión.</li>
+                    <li class="mb-2"><strong class="text-success">Paso 2:</strong> Selecciona el protocolo (UART, I2C o
+                        SPI).</li>
+                    <li class="mb-2"><strong class="text-success">Paso 3:</strong> Si eliges UART, conecta el Destino
+                        UART (SerialScope Pruebas Slave) para ver la mensajería entre ambos.</li>
+                    <li><strong class="text-success">Paso 4:</strong> Envíales datos manuales o activa la
+                        lectura/escucha automática y verifica los LED correspondientes.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Guía rápida de Leds -->
+        <section class="mb-5">
+            <div class="alert alert-light shadow-lg border border-success" style="border-width: 2px !important;">
+                <h2 class="alert-heading text-success fw-bold text-center display-6 mb-4">
+                    <i class="bi bi-lightbulb-fill"></i> Guía de LEDs (Indicadores)
+                </h2>
+                <hr class="border-success">
+                <ul class="mb-0 text-dark">
+                    <li class="mb-2">⚪ <strong class="text-dark">Blanco (Estado BLE):</strong> Parpadea si no está
+                        conectado. Queda encendido un momento al vincularse y luego se apaga.</li>
+                    <li class="mb-2">🔴 <strong class="text-danger">Rojo:</strong> Parpadea cuando la prueba UART está
+                        activa (Velocidad dicta los destellos).</li>
+                    <li class="mb-2">🔵 <strong class="text-primary">Azul:</strong> Parpadea cuando la prueba I2C
+                        está activa.</li>
+                    <li class="mb-2">🟡 <strong class="text-warning">Amarillo:</strong> Parpadea cuando la prueba SPI
+                        está activa.</li>
+                    <li>🟢 <strong class="text-success">Verde (Error / PING):</strong> Parpadea en respuesta a un PING
+                        o si hay alguna falla en los sensores.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Sección de Conexión del Emulador -->
+        <section id="seccion-conexion-emulador"
+            class="mb-5 p-4 bg-light rounded-4 shadow-lg border-start border-success"
+            style="border-left-width: 5px !important;">
+            <div class="mx-auto text-center" style="max-width: 800px;">
+                <div class="mb-4">
+                    <h2 class="text-success fw-bold">
+                        <i class="bi bi-bluetooth"></i> Enlace con ESP32 de Pruebas
+                    </h2>
+                    <p class="text-muted">
+                        Conéctate al ESP32 (Pruebas-Master) para configurar el protocolo a probar.
+                    </p>
+                </div>
+
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <div class="p-4 bg-white rounded-4 shadow-sm border border-success flex-fill"
+                        style="max-width: 400px;">
+                        <h5 class="fw-bold text-success border-bottom pb-2 mb-3 text-center">Pruebas-Master</h5>
+                        <div class="text-center">
+                            <div id="status-emulador" class="badge bg-secondary mb-3 p-2 px-3">DESCONECTADO</div>
+                        </div>
+                        <button type="button" id="btn-conectar-emulador"
+                            class="btn btn-success btn-lg w-100 mb-3 shadow-sm" onclick="conectarEmulador()">
+                            <i class="bi bi-link-45deg"></i> Conectar Master
+                        </button>
+                        <button id="btn-ping-emulador" class="btn btn-outline-info w-100 mt-2" onclick="pingEmulador()"
+                            disabled>
+                            <i class="bi bi-terminal"></i> Test PING (LED Verde)
+                        </button>
+                    </div>
+
+                    <!-- Botón secundario exclusivo para UART Destino (Inyectado via JS o escondido por defecto) -->
+                    <div id="panel-uart-destino"
+                        class="p-4 bg-white rounded-4 shadow-sm border border-primary flex-fill"
+                        style="max-width: 400px; display: none;">
+                        <h5 class="fw-bold text-primary border-bottom pb-2 mb-3 text-center">Pruebas-Slave</h5>
+                        <div class="text-center">
+                            <div id="status-destino" class="badge bg-secondary mb-3 p-2 px-3">DESCONECTADO</div>
+                        </div>
+                        <button type="button" id="btn-conectar-destino"
+                            class="btn btn-primary btn-lg w-100 mb-3 shadow-sm" onclick="conectarDestinoUART()">
+                            <i class="bi bi-link-45deg"></i> Conectar Slave
+                        </button>
+                        <button id="btn-ping-destino" class="btn btn-outline-info w-100 mt-2"
+                            onclick="pingDestinoUART()" disabled>
+                            <i class="bi bi-terminal"></i> Test PING (LED Verde)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Configuración -->
+        <div class="row justify-content-center mb-5">
+            <div class="col-12">
+                <section id="panel-config-emu"
+                    class="p-4 bg-light rounded-4 shadow-lg border-start border-success opacity-50"
+                    style="pointer-events: none; border-left-width: 5px !important;">
+                    <div class="d-flex justify-content-between align-items-center mb-4 border-bottom pb-2">
+                        <h3 class="text-success fw-bold mb-0">
+                            <i class="bi bi-sliders"></i> Configuración de la Prueba
+                        </h3>
+                        <span id="sync-status-emu"
+                            class="badge bg-warning text-dark px-3 py-2 shadow-sm animate__animated animate__pulse animate__infinite">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i> Desincronizado
+                        </span>
+                    </div>
+
+                    <div class="p-4 bg-white rounded-4 border border-success border-opacity-50 shadow-sm mb-4">
+                        <div class="row g-4 align-items-center mb-4">
+                            <div class="col-md-12">
+                                <label class="form-label text-success fw-bold small">PROTOCOLO</label>
+                                <select id="protocoloEmuSelect" class="form-select border-2 border-success"
+                                    onchange="cambiarVistaConfig(); marcarEmuDesincronizado()">
+                                    <option value="UART">UART/RS232 (Prueba Módulo MAX3232)</option>
+                                    <option value="I2C">I2C (Sensores BMP180 y TMP102)</option>
+                                    <option value="SPI">SPI (Sensores MAX6675 y pantalla TFT)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <hr class="text-success opacity-25">
+
+                        <div class="row g-3" id="emu-standard-config-row">
+                            <div class="col-md-6">
+                                <div id="emu-params-container">
+                                    <!-- Inyectado por JS -->
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="emu-sensor-container">
+                                    <!-- Inyectado por JS -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Contenedor para configuraciones de ancho completo (TFT) -->
+                        <div class="row" id="emu-full-width-config-row" style="display:none;">
+                            <div class="col-12">
+                                <div id="emu-full-width-container"></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <button id="btn-aplicar-config-emu" class="btn btn-success w-100 fw-bold shadow-sm py-2"
+                                onclick="aplicarEmulacion()">
+                                <i class="bi bi-cpu"></i> Sincronizar y Aplicar al Hardware
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Área de Interacción Reactiva -->
+                    <div id="emu-interaction-area" class="mt-4">
+                        <!-- AUTOMÁTICO -->
+                        <div id="interaction-sensor" class="animate__animated animate__fadeIn">
+                            <div
+                                class="bg-white p-4 rounded-4 border border-success border-opacity-50 shadow-sm text-center">
+                                <p class="text-muted small mb-3">Se iniciará la lectura o escritura necesaria para el
+                                    sensor seleccionado.</p>
+                                <div class="d-flex justify-content-center gap-3">
+                                    <button id="btn-iniciar-emulacion"
+                                        class="btn btn-success btn-lg px-5 fw-bold shadow-sm"
+                                        onclick="iniciarEmulacion()" disabled>
+                                        <i class="bi bi-play-circle-fill me-2"></i> Iniciar
+                                    </button>
+                                    <button id="btn-detener-emulacion"
+                                        class="btn btn-danger btn-lg px-5 fw-bold shadow-sm"
+                                        onclick="detenerEmulacion()" style="display:none;">
+                                        <i class="bi bi-stop-circle-fill me-2"></i> Detener
+                                    </button>
+                                </div>
+
+                                <!-- Pantalla de datos para sensores -->
+                                <div id="sensor-data-display"
+                                    class="mt-4 p-4 bg-light rounded-4 border-dashed border-2 border-success border-opacity-25"
+                                    style="display:none;">
+                                    <div class="text-uppercase small fw-bold text-success mb-2">Lectura del Sensor</div>
+                                    <div id="raw-data-container"
+                                        class="mb-2 p-2 bg-white text-dark border rounded font-monospace small"
+                                        style="display:none;">
+                                        RAW: <span id="sensor-raw-value">--</span>
+                                    </div>
+                                    <h4 id="sensor-value" class="text-dark fw-bold display-4 mb-0">--</h4>
+                                    <div id="sensor-status" class="mt-2 small text-muted">Esperando datos...</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CHAT UART -->
+                        <div id="interaction-manual" class="animate__animated animate__fadeIn" style="display:none;">
+                            <div class="row g-3">
+                                <!-- PANEL MASTER -->
+                                <div class="col-md-6">
+                                    <div
+                                        class="bg-white p-4 rounded-4 border border-success border-opacity-50 shadow-sm h-100">
+                                        <h6 class="fw-bold text-success mb-3 text-center border-bottom pb-2">
+                                            PRUEBAS-MASTER</h6>
+
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label small fw-bold text-muted mb-0">Recibido en Master
+                                                (desde Slave):</label>
+                                            <button class="btn btn-sm btn-outline-danger border-0 py-0"
+                                                onclick="limpiarChat('master')" title="Limpiar Chat">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                        <textarea id="chat-master-recibido"
+                                            class="form-control font-monospace mb-3 bg-light border-0" rows="4" readonly
+                                            placeholder="Esperando mensajes..."></textarea>
+
+                                        <label class="form-label small fw-bold text-muted">Enviar desde Master (a
+                                            Slave):</label>
+                                        <div class="input-group">
+                                            <input type="text" id="emu-manual-data"
+                                                class="form-control font-monospace border-success"
+                                                placeholder="Escribe aquí...">
+                                            <button class="btn btn-success fw-bold px-3"
+                                                onclick="enviarMensajeManual()">
+                                                <i class="bi bi-send-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- PANEL SLAVE -->
+                                <div class="col-md-6" id="panel-chat-destino" style="display:none;">
+                                    <div
+                                        class="bg-white p-4 rounded-4 border border-primary border-opacity-50 shadow-sm h-100">
+                                        <h6 class="fw-bold text-primary mb-3 text-center border-bottom pb-2">
+                                            PRUEBAS-SLAVE</h6>
+
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <label class="form-label small fw-bold text-muted mb-0">Recibido en Slave
+                                                (desde Master):</label>
+                                            <button class="btn btn-sm btn-outline-danger border-0 py-0"
+                                                onclick="limpiarChat('slave')" title="Limpiar Chat">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
+                                        </div>
+                                        <textarea id="chat-slave-recibido"
+                                            class="form-control font-monospace mb-3 bg-light border-0" rows="4" readonly
+                                            placeholder="Esperando mensajes..."></textarea>
+
+                                        <label class="form-label small fw-bold text-muted">Enviar desde Slave (a
+                                            Master):</label>
+                                        <div class="input-group">
+                                            <input type="text" id="destino-manual-data"
+                                                class="form-control font-monospace border-primary"
+                                                placeholder="Escribe aquí...">
+                                            <button class="btn btn-primary fw-bold px-3"
+                                                onclick="responderDestinoUART()">
+                                                <i class="bi bi-send-fill"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <!-- Guía de Conexión Física -->
+    <main class="container mb-5">
+        <section class="p-4 bg-white rounded-4 shadow-lg border-start border-success"
+            style="border-left-width: 5px !important;">
+            <h5 class="fw-bold text-success border-bottom pb-2 mb-4 text-center">
+                <i class="bi bi-layout-wtf"></i> Guía de Conexión Física — ESP32 Pruebas Master
+            </h5>
+
+            <!-- LEDs -->
+            <h6 class="text-muted fw-bold mb-3"><i class="bi bi-lightbulb-fill"></i> LEDs Indicadores</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-danger px-3 py-2 mb-1 d-block">GPIO 25 🔴</span>
+                    <small class="text-muted">Modo UART activo</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-primary px-3 py-2 mb-1 d-block">GPIO 26 🔵</span>
+                    <small class="text-muted">Modo I²C activo</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-warning text-dark px-3 py-2 mb-1 d-block">GPIO 27 🟡</span>
+                    <small class="text-muted">Modo SPI activo</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-light text-dark border px-3 py-2 mb-1 d-block">GPIO 32 ⚪</span>
+                    <small class="text-muted">Estado BLE</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-success px-3 py-2 mb-1 d-block">GPIO 33 🟢</span>
+                    <small class="text-muted">Error / PING OK</small>
+                </div>
+            </div>
+
+            <hr class="opacity-25">
+
+            <!-- Buses -->
+            <h6 class="text-muted fw-bold mb-3"><i class="bi bi-diagram-3"></i> Conexiones de Protocolo</h6>
+            <div class="row g-4">
+
+                <!-- UART -->
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded-4 border border-danger border-opacity-25 h-100 text-center">
+                        <h6 class="fw-bold text-danger mb-1"><i class="bi bi-serial-port"></i> UART / RS232</h6>
+                        <span class="badge bg-danger text-white mb-3">Módulo MAX3232</span>
+                        <div class="py-2">
+                            <span class="small fw-bold d-block mb-2 text-muted">Hardware Serial2</span>
+                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>RX:</small>
+                                16 🟣</span>
+                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>TX:</small>
+                                17 🟤</span>
+                            <p class="mt-3 small text-muted">Cruza RX↔TX.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- I2C -->
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded-4 border border-primary border-opacity-25 h-100 text-center">
+                        <h6 class="fw-bold text-primary mb-1"><i class="bi bi-diagram-2"></i> I²C</h6>
+                        <span class="badge bg-primary text-white mb-3">BMP180 / TMP102</span>
+                        <div class="py-2">
+                            <span class="small fw-bold d-block mb-2 text-muted">Bus Compartido</span>
+                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>SCL:</small>
+                                22 🟡</span>
+                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>SDA:</small>
+                                21 🟢</span>
+                            <div class="mt-3 text-start">
+                                <small class="text-muted d-block"><b>BMP180:</b> dirección 0x77 — barométrico</small>
+                                <small class="text-muted d-block"><b>TMP102:</b> dirección 0x48/0x49 —
+                                    temperatura</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SPI -->
+                <div class="col-md-4">
+                    <div class="p-3 bg-light rounded-4 border border-warning border-opacity-25 h-100 text-center">
+                        <h6 class="fw-bold text-warning mb-1"><i class="bi bi-usb-symbol"></i> SPI</h6>
+                        <span class="badge bg-warning text-dark mb-3">MAX6675 ó TFT ST7735 ⚠️ solo uno</span>
+                        <div class="py-2">
+                            <div class="d-flex flex-wrap justify-content-center gap-2 mb-2">
+                                <span
+                                    class="badge border border-secondary text-dark bg-white px-2 py-1"><small>SCK:</small>
+                                    18 🔘</span>
+                                <span
+                                    class="badge border border-secondary text-dark bg-white px-2 py-1"><small>CS:</small>
+                                    5 🟠</span>
+                                <span
+                                    class="badge border border-secondary text-dark bg-white px-2 py-1"><small>DO/MISO:</small>
+                                    19 ⚪</span>
+                                <span
+                                    class="badge border border-secondary text-dark bg-white px-2 py-1"><small>MOSI:</small>
+                                    23 🔵</span>
+                            </div>
+                            <div class="text-start">
+                                <small class="text-muted d-block"><b>TFT extra:</b> DC:2 🟣 · RST:4 🔵 · LED:13
+                                    🟢</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-4 text-center border-top pt-3">
+                <p class="mb-1 text-danger fw-bold small">
+                    <i class="bi bi-exclamation-triangle-fill"></i> REGLA DE ORO: GND común entre los ESP32 y sensores.
+                </p>
+                <p class="mb-0 text-muted" style="font-size: 0.7rem;">
+                    Todos los pines operan a 3.3V. Voltaje de alimentación: VCC → 3.3V.
+                </p>
+            </div>
+        </section>
+    </main>
+
+
+    <div id="footer-placeholder"></div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

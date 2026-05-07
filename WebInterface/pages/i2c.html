@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I2C - SerialScope</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script type="module" src="/src/main.js"></script>
+</head>
+
+<body>
+    <div id="header-placeholder"></div>
+
+    <main class="container my-5">
+        <!-- Hero Section -->
+        <div class="p-5 mb-5 bg-light rounded-3 text-center">
+            <h1 class="display-4 fw-bold text-danger">I2C</h1>
+            <p class="lead">Inter-Integrated Circuit - Comunicación Serial Síncrona Multi-Maestro</p>
+        </div>
+
+        <!-- I2C Section -->
+        <section class="mb-5">
+            <div class="card border-danger shadow-lg">
+                <div class="card-header bg-danger text-white h4 text-center">
+                    <i class="bi bi-cpu"></i> I2C (Inter-Integrated Circuit)
+                </div>
+                <div class="card-body">
+                    <h5 class="text-danger mb-3">¿Qué es I2C?</h5>
+                    <p>I2C es un protocolo de comunicación <strong>síncrono</strong> maestro/esclavo que utiliza
+                        solo dos cables: SDA (datos) y SCL (reloj). Permite que un solo maestro se comunique con
+                        múltiples esclavos mediante direccionamiento. Fue desarrollado por Philips (ahora NXP)
+                        en 1982.</p>
+
+                    <!-- Videos de ejemplo -->
+                    <div class="row g-3 my-4">
+                        <div class="col-md-4">
+                            <div class="card h-100 border-danger">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/6IAkYpmA1DQ" title="Ejemplo I2C 1"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Explicación básica de I2C</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-danger">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/CAvawEcxoPU" title="Ejemplo I2C 2"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Protocolo I2C en detalle</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100 border-danger">
+                                <div class="ratio ratio-16x9">
+                                    <iframe src="https://www.youtube.com/embed/BcWixZcZ6JY" title="Ejemplo I2C 3"
+                                        allowfullscreen>
+                                    </iframe>
+                                </div>
+                                <div class="card-body">
+                                    <p class="card-text small text-center">Implementación práctica I2C</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-danger mt-4 mb-3">Características principales:</h6>
+                    <ul>
+                        <li><strong>Síncrono:</strong> Usa señal de reloj (SCL)</li>
+                        <li><strong>Multi-dispositivo:</strong> Hasta 127 dispositivos en el mismo bus</li>
+                        <li><strong>Direccionamiento:</strong> 7 o 10 bits</li>
+                        <li><strong>ACK/NACK:</strong> Confirmación de recepción</li>
+                        <li><strong>Bidireccional:</strong> Comunicación en ambas direcciones</li>
+                        <li><strong>2 cables:</strong> SDA (datos) y SCL (reloj)</li>
+                    </ul>
+
+                    <h6 class="text-danger mt-4 mb-3">Modos Multi-Maestro y Multi-Esclavo:</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <div class="card border-danger h-100">
+                                <div class="card-header bg-danger text-white">
+                                    <strong>Multi-Maestro</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Concepto:</strong> Múltiples dispositivos maestros pueden coexistir en el
+                                        mismo bus I2C.</p>
+                                    <p class="mb-2"><strong>Características:</strong></p>
+                                    <ul class="small">
+                                        <li><strong>Arbitraje de bus:</strong> Cuando dos maestros intentan transmitir
+                                            simultáneamente, el protocolo determina automáticamente el ganador</li>
+                                        <li><strong>Detección de colisión:</strong> Los maestros monitorean SDA durante
+                                            la transmisión. Si detectan un nivel diferente al enviado, ceden el bus</li>
+                                        <li><strong>Clock stretching:</strong> Un esclavo puede mantener SCL en bajo
+                                            para pausar la comunicación si necesita más tiempo</li>
+                                        <li><strong>Prioridad implícita:</strong> Las direcciones más bajas tienen
+                                            prioridad (más 0s al inicio)</li>
+                                    </ul>
+                                    <div class="alert alert-warning small mb-0 mt-2">
+                                        <strong>Ejemplo:</strong> Si Maestro A transmite dirección 0x20 (0010 0000) y
+                                        Maestro B transmite 0x10 (0001 0000), el Maestro B gana porque su primer bit
+                                        diferente es 0.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card border-danger h-100">
+                                <div class="card-header bg-danger text-white">
+                                    <strong>Multi-Esclavo</strong>
+                                </div>
+                                <div class="card-body">
+                                    <p><strong>Concepto:</strong> Hasta 127 dispositivos esclavos pueden conectarse al
+                                        mismo bus I2C (con direccionamiento de 7 bits).</p>
+                                    <p class="mb-2"><strong>Características:</strong></p>
+                                    <ul class="small">
+                                        <li><strong>Direccionamiento único:</strong> Cada esclavo debe tener una
+                                            dirección única en el bus (0x08 a 0x77)</li>
+                                        <li><strong>Configuración:</strong> Las direcciones se asignan mediante:
+                                            <ul>
+                                                <li>Hardware: Pines A0, A1, A2 del dispositivo</li>
+                                                <li>Fábrica: Dirección fija programada</li>
+                                                <li>Software: Configuración por registro</li>
+                                            </ul>
+                                        </li>
+                                        <li><strong>Escucha selectiva:</strong> Todos los esclavos escuchan el bus, pero
+                                            solo el direccionado responde</li>
+                                        <li><strong>General Call:</strong> Dirección 0x00 permite que el maestro se
+                                            comunique con todos los esclavos simultáneamente</li>
+                                    </ul>
+                                    <div class="alert alert-info small mb-0 mt-2">
+                                        <strong>Ejemplo:</strong> Un sensor de temperatura en 0x48, una EEPROM en 0x50,
+                                        y un RTC en 0x68 pueden compartir el mismo bus SDA/SCL.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-danger mt-4 mb-3">Modos de velocidad I2C:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-danger">
+                                <tr>
+                                    <th>Modo</th>
+                                    <th>Velocidad</th>
+                                    <th>Características</th>
+                                    <th>Aplicaciones típicas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Standard Mode (Sm)</strong></td>
+                                    <td>100 kbit/s</td>
+                                    <td>Modo original, menor consumo de energía. Pull-up típico: 4.7kΩ</td>
+                                    <td>Sensores, EEPROMs, RTCs de baja velocidad</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fast Mode (Fm)</strong></td>
+                                    <td>400 kbit/s</td>
+                                    <td>Mayor velocidad, pull-up reducido: 2.2kΩ. Compatible con Sm</td>
+                                    <td>Displays, acelerómetros, conversores ADC/DAC</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Fast Mode Plus (Fm+)</strong></td>
+                                    <td>1 Mbit/s</td>
+                                    <td>Requiere buffers especiales, mayor capacitancia del bus</td>
+                                    <td>Cámaras, memorias de alta velocidad, interfaces gráficas</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>High-speed Mode (Hs)</strong></td>
+                                    <td>3.4 Mbit/s</td>
+                                    <td>Usa código maestro especial (0000 1XXX), señalización diferencial</td>
+                                    <td>Transferencias masivas de datos, comunicación entre procesadores</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ultra Fast-mode (UFm)</strong></td>
+                                    <td>5 Mbit/s</td>
+                                    <td>Unidireccional solamente, para aplicaciones especializadas</td>
+                                    <td>Pantallas de alta resolución, video streaming</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h6 class="text-danger mt-4 mb-3">Ejemplos de tramas I2C:</h6>
+                    <div class="card border-danger">
+                        <div class="card-body bg-light">
+                            <p class="mb-3">A continuación se muestran dos ejemplos prácticos de comunicación I2C con un
+                                RTC DS1307:</p>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <h6 class="text-danger fw-bold mb-3">Escritura en DS1307 RTC</h6>
+                                    <img src="https://hetpro-store.com/TUTORIALES/wp-content/uploads/2017/10/Trama-I2C-Ejemplo1-DS1307-rtc-768x530.jpg"
+                                        alt="Trama I2C - Ejemplo de escritura en DS1307"
+                                        class="img-fluid border rounded shadow-sm">
+                                    <p class="small text-muted mt-2">Secuencia de escritura mostrando START, dirección
+                                        del
+                                        dispositivo, registro objetivo y datos.</p>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <h6 class="text-danger fw-bold mb-3">Lectura desde DS1307 RTC</h6>
+                                    <img src="https://hetpro-store.com/TUTORIALES/wp-content/uploads/2017/10/Trama-I2C-Ejemplo2-DS1307-rtc-768x723.jpg"
+                                        alt="Trama I2C - Ejemplo de lectura desde DS1307"
+                                        class="img-fluid border rounded shadow-sm">
+                                    <p class="small text-muted mt-2">Secuencia de lectura con START repetido, cambio de
+                                        dirección y
+                                        recepción de datos.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <strong><i class="bi bi-info-circle"></i> Direccionamiento I2C:</strong>
+                        <ul class="mb-0 mt-2">
+                            <li><strong>7 bits:</strong> Permite hasta 128 dispositivos (0x00-0x7F), donde algunas
+                                direcciones están reservadas</li>
+                            <li><strong>10 bits:</strong> Permite hasta 1024 dispositivos, usa secuencia especial de dos
+                                bytes</li>
+                            <li><strong>Direcciones reservadas:</strong> 0x00 (General Call), 0x01 (CBUS), 0x02 (formato
+                                diferente), 0x78-0x7F (10-bit)</li>
+                        </ul>
+                    </div>
+
+                    <h6 class="text-danger mt-4 mb-3">Condiciones especiales:</h6>
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead class="table-danger">
+                                <tr>
+                                    <th>Condición</th>
+                                    <th>Descripción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>START</strong></td>
+                                    <td>SDA cambia de alto a bajo mientras SCL está alto</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>STOP</strong></td>
+                                    <td>SDA cambia de bajo a alto mientras SCL está alto</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>ACK</strong></td>
+                                    <td>El receptor confirma la recepción (SDA bajo)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>NACK</strong></td>
+                                    <td>El receptor no confirma (SDA alto)</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Repeated START</strong></td>
+                                    <td>Nueva condición START sin STOP previo</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <strong>Nota importante:</strong> Las líneas SDA y SCL requieren resistencias pull-up
+                        externas
+                        (típicamente 4.7kΩ).
+                    </div>
+
+                    <!-- Funcionamiento con el dispositivo -->
+                    <div class="mt-5">
+                        <h6 class="text-danger mb-4 fw-bold"><i class="bi bi-play-circle-fill"></i> Funcionamiento con el dispositivo:</h6>
+                        <div class="row g-4">
+                            <!-- Video 1: TMP102 Sniffing -->
+                            <div class="col-md-4">
+                                <div class="card h-100 border-danger shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/XU3ZTmeUEhQ" title="I2C Sensor TMP102 Sniffing"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">TMP102 Sniffing</h6>
+                                        <p class="card-text x-small text-muted mb-0">Demostración de captura de datos (sniffing) del sensor de temperatura TMP102.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Video 2: TMP102 Prueba -->
+                            <div class="col-md-4">
+                                <div class="card h-100 border-danger shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/o60tGZEzey4" title="I2C Sensor TMP102 Prueba"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">Prueba TMP102</h6>
+                                        <p class="card-text x-small text-muted mb-0">Validación de comunicación y lectura de registros del sensor TMP102.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Video 3: BMP180 -->
+                            <div class="col-md-4">
+                                <div class="card h-100 border-danger shadow-sm card-premium">
+                                    <div class="ratio ratio-16x9">
+                                        <iframe src="https://www.youtube.com/embed/N-JiWYaFokQ" title="I2C Sensor BMP180"
+                                            allowfullscreen>
+                                        </iframe>
+                                    </div>
+                                    <div class="card-body p-3">
+                                        <h6 class="card-title fw-bold small mb-1">Prueba BMP180</h6>
+                                        <p class="card-text x-small text-muted mb-0">Visualización de tráfico I2C generado por el sensor barométrico BMP180.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Direccionamiento -->
+                    <div class="mt-4">
+                        <h6 class="text-danger mb-3">Direccionamiento I2C:</h6>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border">
+                                    <h6 class="fw-bold">7 bits (más común)</h6>
+                                    <p class="small mb-2">128 direcciones posibles (0x00 a 0x7F)</p>
+                                    <p class="small mb-0">Reservadas: 0x00-0x07 y 0x78-0x7F</p>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-light rounded border">
+                                    <h6 class="fw-bold">10 bits (extendido)</h6>
+                                    <p class="small mb-2">1024 direcciones posibles</p>
+                                    <p class="small mb-0">Para sistemas con muchos dispositivos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Aplicaciones -->
+                    <div class="mt-4">
+                        <h6 class="text-danger mb-3">Aplicaciones comunes:</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="alert alert-danger">
+                                    <strong>Sensores:</strong> Temperatura, presión, acelerómetros, giroscopios
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-danger">
+                                    <strong>Memorias:</strong> EEPROM, RTC (Real-Time Clock)
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-danger">
+                                    <strong>Periféricos:</strong> Displays LCD/OLED, convertidores ADC/DAC
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="alert alert-danger">
+                                    <strong>Expansores:</strong> GPIO expanders, multiplexores I/O
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Boton para ir al educacion e interaccion con el hardware -->
+        <section class="text-center p-5 bg-light rounded-3">
+            <h3 class="mb-4">¿Listo para experimentar con I2C?</h3>
+            <p class="fs-5 mb-4">Descubre cómo interactúan los dispositivos en el bus I2C con nuestro visualizador.</p>
+            <div class="d-flex gap-3 justify-content-center flex-wrap">
+                <a href="visualizacion.html" class="btn btn-danger btn-lg">Ir al visualizador</a>
+                <a href="referencias.html" class="btn btn-outline-danger btn-lg">Ver referencias</a>
+                <a href="educacion.html" class="btn btn-outline-secondary btn-lg">Volver a fundamentos</a>
+            </div>
+        </section>
+    </main>
+
+    <div id="footer-placeholder"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+
+</html>

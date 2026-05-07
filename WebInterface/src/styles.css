@@ -1,0 +1,1233 @@
+/* ============================================
+   VARIABLES Y COLORES - FONDO OSCURO CON CONTENIDO CLARO
+   ============================================ */
+:root {
+  --bg-top: #0a0e1a;
+  --bg-mid: #0f1419;
+  --bg-bottom: #1a1f2e;
+  --accent: #667eea;
+  --accent-glow: rgba(102, 126, 234, 0.4);
+  --glass: rgba(240, 244, 248, 0.95);
+  --glass-border: rgba(100, 180, 200, 0.25);
+  --shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 12px 40px rgba(102, 126, 234, 0.4);
+  --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --gradient-success: linear-gradient(135deg, #56ab2f 0%, #a8e063 100%);
+  --gradient-danger: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  --gradient-warning: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+  --text-primary: #1a202c;
+  --text-secondary: #4a5568;
+  --oscilloscope-grid: rgba(102, 126, 234, 0.15);
+  --cyan-soft: #5db5c9;
+  --cyan-medium: #4a9fb0;
+  --cyan-glow: rgba(93, 181, 201, 0.4);
+}
+
+/* ============================================
+   BODY Y FONDOS ANIMADOS - OSCURO CON REJILLA DE OSCILOSCOPIO
+   ============================================ */
+body {
+  margin: 0;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  color: #e8eef3;
+  background: linear-gradient(
+    135deg,
+    var(--bg-top) 0%,
+    var(--bg-mid) 50%,
+    var(--bg-bottom) 100%
+  );
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Rejilla estilo osciloscopio - Líneas horizontales y verticales */
+body::before {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: 
+    /* Líneas verticales */ repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 49px,
+      var(--oscilloscope-grid) 49px,
+      var(--oscilloscope-grid) 50px
+    ),
+    /* Líneas horizontales */
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 49px,
+        var(--oscilloscope-grid) 49px,
+        var(--oscilloscope-grid) 50px
+      ),
+    /* Líneas más gruesas cada 5 divisiones (verticales) */
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 249px,
+        rgba(102, 126, 234, 0.25) 249px,
+        rgba(102, 126, 234, 0.25) 251px
+      ),
+    /* Líneas más gruesas cada 5 divisiones (horizontales) */
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 249px,
+        rgba(102, 126, 234, 0.25) 249px,
+        rgba(102, 126, 234, 0.25) 251px
+      );
+  background-size: 50px 50px, 50px 50px, 250px 250px, 250px 250px;
+  opacity: 0.4;
+  animation: pulse-grid 4s ease-in-out infinite;
+}
+
+@keyframes pulse-grid {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Señal animada estilo osciloscopio */
+body::after {
+  content: "";
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(102, 126, 234, 0.25) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  opacity: 0.5;
+  animation: oscilloscope-signal 6s linear infinite;
+}
+
+@keyframes oscilloscope-signal {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes slide-lines {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+
+/* ============================================
+   LAYOUT PRINCIPAL
+   ============================================ */
+main,
+header,
+footer,
+.container,
+.p-5 {
+  position: relative;
+  z-index: 1;
+}
+
+main {
+  flex: 1 0 auto;
+  animation: fadeIn 0.6s ease-in;
+}
+
+footer {
+  flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ============================================
+   EFECTOS DE CRISTAL (GLASSMORPHISM) - GRIS CLARO SUAVE
+   ============================================ */
+.bg-light,
+.bg-white {
+  background: rgba(240, 244, 248, 0.95) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(93, 181, 201, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 12px rgba(93, 181, 201, 0.08);
+  color: var(--text-primary) !important;
+}
+
+.shadow-sm {
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 12px rgba(93, 181, 201, 0.08) !important;
+}
+
+/* ============================================
+   NAVBAR MEJORADO - CYAN SUAVE PROFESIONAL
+   ============================================ */
+.navbar {
+  backdrop-filter: blur(15px);
+  background: linear-gradient(
+    135deg,
+    rgba(93, 181, 201, 0.2),
+    rgba(74, 159, 176, 0.25)
+  ) !important;
+  border-bottom: 3px solid rgba(93, 181, 201, 0.5);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 30px rgba(93, 181, 201, 0.25),
+    inset 0 1px 0 rgba(93, 181, 201, 0.2);
+  position: relative;
+  z-index: 1000;
+}
+
+.navbar::before {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(93, 181, 201, 0.9) 25%,
+    rgba(115, 200, 220, 0.9) 50%,
+    rgba(93, 181, 201, 0.9) 75%,
+    transparent
+  );
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+@keyframes border-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.navbar-brand {
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #5db5c9, #73c8dc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 0 8px rgba(93, 181, 201, 0.4));
+}
+
+.navbar-brand:hover {
+  transform: scale(1.05);
+  filter: brightness(1.2) drop-shadow(0 0 12px rgba(93, 181, 201, 0.5));
+}
+
+.nav-link {
+  position: relative;
+  padding: 0.5rem 1rem !important;
+  margin: 0 0.2rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  color: #5db5c9 !important;
+  text-shadow: 0 0 8px rgba(93, 181, 201, 0.25);
+}
+
+.nav-link::before {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #5db5c9, #73c8dc);
+  transform: translateX(-50%);
+  transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(93, 181, 201, 0.6);
+}
+
+.nav-link:hover {
+  background: rgba(93, 181, 201, 0.15);
+  transform: translateY(-2px);
+  color: #73c8dc !important;
+  font-weight: 600;
+  text-shadow: 0 0 12px rgba(93, 181, 201, 0.4);
+}
+
+.nav-link:hover::before {
+  width: 80%;
+}
+
+.nav-link.active {
+  background: rgba(93, 181, 201, 0.2);
+  box-shadow: 0 0 15px rgba(93, 181, 201, 0.35);
+  color: #73c8dc !important;
+  font-weight: 700;
+  text-shadow: 0 0 15px rgba(93, 181, 201, 0.5);
+}
+
+/* Dropdown Menu Styles */
+.dropdown-menu {
+  background: linear-gradient(
+    135deg,
+    rgba(10, 14, 26, 0.98),
+    rgba(26, 31, 46, 0.98)
+  );
+  border: 2px solid rgba(93, 181, 201, 0.4);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 30px rgba(93, 181, 201, 0.3);
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  backdrop-filter: blur(15px);
+}
+
+.dropdown-item {
+  color: #5db5c9 !important;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  font-weight: 500;
+  text-shadow: 0 0 5px rgba(93, 181, 201, 0.2);
+  margin: 0.2rem 0;
+}
+
+.dropdown-item:hover {
+  background: rgba(93, 181, 201, 0.2) !important;
+  color: #73c8dc !important;
+  transform: translateX(5px);
+  text-shadow: 0 0 10px rgba(93, 181, 201, 0.4);
+}
+
+.dropdown-item:active {
+  background: rgba(93, 181, 201, 0.3) !important;
+}
+
+.dropdown-divider {
+  border-color: rgba(93, 181, 201, 0.3);
+  margin: 0.5rem 0;
+}
+
+.dropdown-toggle::after {
+  border-top-color: #5db5c9;
+  filter: drop-shadow(0 0 3px rgba(93, 181, 201, 0.5));
+}
+
+/* ============================================
+   BOTONES MEJORADOS
+   ============================================ */
+.btn {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.btn::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn:hover::before {
+  width: 300px;
+  height: 300px;
+}
+
+.btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.btn:active {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  border: none;
+}
+
+.btn-success {
+  background: var(--gradient-success);
+}
+
+.btn-outline-success {
+  border: 2px solid #56ab2f;
+  color: #56ab2f;
+  background: transparent;
+}
+
+.btn-outline-success:hover {
+  background: var(--gradient-success);
+  color: white;
+  border-color: transparent;
+}
+
+.btn-outline-danger {
+  border: 2px solid #eb3349;
+  color: #eb3349;
+  background: transparent;
+}
+
+.btn-outline-danger:hover {
+  background: var(--gradient-danger);
+  color: white;
+  border-color: transparent;
+}
+
+.btn-outline-warning {
+  border: 2px solid #f2994a;
+  color: #f2994a;
+  background: transparent;
+}
+
+.btn-outline-warning:hover {
+  background: var(--gradient-warning);
+  color: white;
+  border-color: transparent;
+}
+
+/* ============================================
+   CARDS MEJORADAS
+   ============================================ */
+.card {
+  border: 1px solid rgba(93, 181, 201, 0.2);
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2), 0 0 12px rgba(93, 181, 201, 0.08);
+  background: rgba(240, 244, 248, 0.95) !important;
+  backdrop-filter: blur(10px);
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+}
+
+.card-premium {
+  border: 1px solid rgba(93, 181, 201, 0.3) !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3) !important;
+}
+
+.card-premium:hover {
+  border-color: var(--cyan-soft) !important;
+  box-shadow: 0 20px 45px rgba(93, 181, 201, 0.25) !important;
+}
+
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.1),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.card:hover::before {
+  left: 100%;
+}
+
+.card:hover {
+  transform: translateY(-10px) scale(1.02);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3), 0 0 25px rgba(93, 181, 201, 0.2);
+}
+
+.card-header {
+  font-weight: 700;
+  border: none;
+  padding: 1rem 1.5rem;
+}
+
+.bg-success {
+  background: var(--gradient-success) !important;
+}
+
+.bg-danger {
+  background: var(--gradient-danger) !important;
+}
+
+.bg-warning {
+  background: var(--gradient-warning) !important;
+}
+
+.protocol-card {
+  min-height: 250px;
+  background: rgba(240, 244, 248, 0.95) !important;
+  border: 1px solid rgba(93, 181, 201, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 12px rgba(93, 181, 201, 0.08);
+}
+
+/* ============================================
+   HERO SECTION (JUMBOTRON) - GRIS CLARO SUAVE
+   ============================================ */
+.rounded-3 {
+  border-radius: 20px !important;
+  position: relative;
+  overflow: hidden;
+  background: rgba(240, 244, 248, 0.95) !important;
+  border: 2px solid rgba(93, 181, 201, 0.25);
+  animation: float 6s ease-in-out infinite;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 15px rgba(93, 181, 201, 0.15);
+}
+
+/* Puntos flotantes decorativos */
+.rounded-3::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  top: 0;
+  left: 0;
+  background-image: radial-gradient(
+      circle,
+      rgba(102, 126, 234, 0.4) 2px,
+      transparent 2px
+    ),
+    radial-gradient(circle, rgba(93, 181, 201, 0.3) 1.5px, transparent 1.5px),
+    radial-gradient(circle, rgba(118, 75, 162, 0.35) 1px, transparent 1px);
+  background-size: 50px 50px, 80px 80px, 100px 100px;
+  background-position: 0 0, 40px 40px, 20px 60px;
+  pointer-events: none;
+  opacity: 0.6;
+  animation: float-particles 20s linear infinite;
+}
+
+@keyframes float-particles {
+  0% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-20px) translateX(10px);
+  }
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.display-5 {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradient-shift 3s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(10deg);
+  }
+}
+
+/* ============================================
+   OSCILOSCOPIO - MODO CLARO
+   ============================================ */
+.oscilloscope-container {
+  height: 350px;
+  background: linear-gradient(135deg, #1a1f2e 0%, #0a0e1a 100%);
+  border-radius: 15px;
+  padding: 15px;
+  box-shadow: 0 0 30px rgba(102, 126, 234, 0.3),
+    inset 0 0 20px rgba(102, 126, 234, 0.1);
+  border: 2px solid rgba(102, 126, 234, 0.5);
+  position: relative;
+  overflow: hidden;
+}
+
+.oscilloscope-container::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(
+    circle,
+    rgba(240, 244, 248, 0.8) 0%,
+    rgba(200, 210, 220, 0.4) 70%,
+    transparent 100%
+  );
+  /* Animación removida para fondo estático */
+}
+
+/* Señales animadas de fondo en el osciloscopio */
+.oscilloscope-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 25px,
+      rgba(102, 126, 234, 0.1) 25px,
+      rgba(102, 126, 234, 0.1) 26px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 25px,
+      rgba(102, 126, 234, 0.1) 25px,
+      rgba(102, 126, 234, 0.1) 26px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes rotate-gradient {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.oscilloscope-container canvas {
+  position: relative;
+  z-index: 1;
+}
+
+.chart-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 14, 26, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 10;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.chart-overlay.hidden {
+  opacity: 0;
+}
+
+/* ============================================
+   TABLAS MEJORADAS - MODO CLARO
+   ============================================ */
+.table {
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.table thead {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.8),
+    rgba(118, 75, 162, 0.8)
+  );
+  color: white;
+  font-weight: 700;
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(102, 126, 234, 0.05);
+}
+
+.table tbody tr {
+  transition: all 0.3s ease;
+  color: var(--text-primary);
+}
+
+.table tbody tr:hover {
+  background-color: rgba(102, 126, 234, 0.15);
+  transform: scale(1.01);
+}
+
+.table td,
+.table th {
+  border-color: rgba(102, 126, 234, 0.2);
+  color: var(--text-primary);
+}
+
+/* Caption de tabla */
+.table caption {
+  color: var(--text-secondary) !important;
+}
+
+/* ============================================
+   FORMULARIOS MEJORADOS - MODO CLARO
+   ============================================ */
+.form-control,
+.form-select {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 2px solid var(--glass-border);
+  transition: all 0.3s ease;
+  border-radius: 10px;
+  color: var(--text-primary) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+  background: white !important;
+  border-color: var(--accent);
+  box-shadow: 0 0 20px var(--accent-glow);
+  transform: scale(1.02);
+}
+
+.form-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.form-text {
+  color: var(--text-secondary) !important;
+}
+
+/* ============================================
+   SECCIONES - MODO CLARO
+   ============================================ */
+section {
+  animation: slideIn 0.6s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+section:nth-child(even) {
+  animation: slideInRight 0.6s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Asegurar que el contenido esté visible */
+section > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============================================
+   FOOTER - CYAN SUAVE PROFESIONAL
+   ============================================ */
+footer {
+  backdrop-filter: blur(15px);
+  background: linear-gradient(
+    135deg,
+    rgba(93, 181, 201, 0.2),
+    rgba(74, 159, 176, 0.25)
+  ) !important;
+  border-top: 3px solid rgba(93, 181, 201, 0.5);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5), 0 0 30px rgba(93, 181, 201, 0.25),
+    inset 0 -1px 0 rgba(93, 181, 201, 0.2);
+  color: #5db5c9 !important;
+  position: relative;
+  z-index: 100;
+}
+
+footer::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(93, 181, 201, 0.9) 25%,
+    rgba(115, 200, 220, 0.9) 50%,
+    rgba(93, 181, 201, 0.9) 75%,
+    transparent
+  );
+  animation: border-glow 3s ease-in-out infinite;
+}
+
+footer p {
+  transition: all 0.3s ease;
+  color: #5db5c9 !important;
+  text-shadow: 0 0 5px rgba(93, 181, 201, 0.25);
+}
+
+footer p:hover {
+  color: #73c8dc !important;
+  transform: translateX(5px);
+  text-shadow: 0 0 8px rgba(93, 181, 201, 0.35);
+}
+
+footer .small {
+  color: #5db5c9 !important;
+  text-shadow: 0 0 5px rgba(93, 181, 201, 0.2);
+}
+
+footer h5 {
+  color: #5db5c9 !important;
+  text-shadow: 0 0 12px rgba(93, 181, 201, 0.4);
+  font-weight: 700;
+}
+
+/* Cita inspiradora en el footer */
+.footer-quote {
+  font-style: italic;
+  color: #5db5c9 !important;
+  border-left: 4px solid #5db5c9;
+  padding-left: 1rem;
+  margin: 1.5rem 0;
+  font-size: 1.1rem;
+  text-shadow: 0 0 8px rgba(93, 181, 201, 0.3);
+  font-weight: 600;
+}
+
+.footer-quote-author {
+  color: #5db5c9 !important;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  text-shadow: 0 0 5px rgba(93, 181, 201, 0.25);
+}
+
+/* ============================================
+   UTILIDADES
+   ============================================ */
+.text-primary {
+  color: #667eea !important;
+}
+
+.text-secondary {
+  color: #764ba2 !important;
+}
+
+/* Scrollbar personalizado - MODO OSCURO */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0e1a;
+  border-left: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  border-radius: 6px;
+  border: 2px solid #0a0e1a;
+  box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #7b8ff0, #8a5cb8);
+  box-shadow: 0 0 15px rgba(102, 126, 234, 0.8);
+}
+
+/* Placeholder para diagramas */
+.diagram-placeholder {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.1),
+    rgba(118, 75, 162, 0.1)
+  );
+  border: 2px dashed rgba(102, 126, 234, 0.4);
+  border-radius: 10px;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin: 1.5rem 0;
+  transition: all 0.3s ease;
+}
+
+.diagram-placeholder:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.15),
+    rgba(118, 75, 162, 0.15)
+  );
+  border-color: rgba(102, 126, 234, 0.6);
+  transform: scale(1.02);
+}
+
+.diagram-placeholder::before {
+  content: "";
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* Placeholder para videos */
+.video-placeholder {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.1),
+    rgba(118, 75, 162, 0.1)
+  );
+  border: 2px dashed rgba(102, 126, 234, 0.4);
+  border-radius: 10px;
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin: 1rem 0;
+  transition: all 0.3s ease;
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-placeholder:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(102, 126, 234, 0.15),
+    rgba(118, 75, 162, 0.15)
+  );
+  border-color: rgba(102, 126, 234, 0.6);
+  transform: scale(1.02);
+}
+
+.video-placeholder::before {
+  content: "🎥";
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+@media (max-width: 768px) {
+  .display-4 {
+    font-size: 2rem;
+  }
+
+  .display-5 {
+    font-size: 1.8rem;
+  }
+
+  .display-6 {
+    font-size: 1.5rem;
+  }
+
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+
+  .card {
+    margin-bottom: 1rem;
+  }
+
+  .oscilloscope-container {
+    height: 250px;
+  }
+
+  .btn-lg {
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+  }
+
+  section {
+    padding: 1rem !important;
+  }
+
+  .table {
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .display-4 {
+    font-size: 1.5rem;
+  }
+
+  .display-5 {
+    font-size: 1.3rem;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  .oscilloscope-container {
+    height: 200px;
+  }
+
+  .card-body {
+    padding: 1rem;
+  }
+
+  footer {
+    font-size: 0.85rem;
+  }
+}
+
+/* ============================================
+   ANIMACIONES DE CARGA
+   ============================================ */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.loading {
+  animation: shimmer 2s infinite;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* ============================================
+   UTILIDADES ADICIONALES
+   ============================================ */
+.text-gradient {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.glow {
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Alert en modo claro */
+.alert {
+  color: var(--text-primary) !important;
+}
+
+.alert strong,
+.alert h5,
+.alert h6 {
+  color: var(--accent) !important;
+}
+
+/* Referencias bibliográficas */
+.reference-link {
+  color: #667eea;
+  text-decoration: none;
+  border-bottom: 1px dotted #667eea;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.reference-link:hover {
+  color: #764ba2;
+  border-bottom: 2px solid #764ba2;
+  text-decoration: none;
+}
+
+.reference-list {
+  background: rgba(102, 126, 234, 0.05);
+  border-left: 4px solid #667eea;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  border-radius: 0 8px 8px 0;
+}
+
+.reference-list h6 {
+  color: #667eea;
+  font-weight: 700;
+  margin-bottom: 1rem;
+}
+
+.reference-list ol {
+  margin-bottom: 0;
+}
+
+.reference-list li {
+  margin-bottom: 0.5rem;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   RELOJ FLOTANTE (CYBER-TECH)
+   ============================================ */
+.clock-floating {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: rgba(10, 14, 26, 0.85);
+    backdrop-filter: blur(8px);
+    color: #00f2ff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 2px solid #00f2ff;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.4rem;
+    font-weight: bold;
+    box-shadow: 0 0 15px rgba(0, 242, 255, 0.4), inset 0 0 10px rgba(0, 242, 255, 0.2);
+    text-shadow: 0 0 8px #00f2ff;
+    pointer-events: none;
+    transition: all 0.3s ease;
+    animation: clock-pulse 2s infinite ease-in-out;
+}
+
+@keyframes clock-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.95; }
+    50% { transform: scale(1.02); opacity: 1; box-shadow: 0 0 25px rgba(0, 242, 255, 0.6); }
+}
+
+/* ============================================
+   ESTILOS  - PANEL DE CONTROL
+   ============================================ */
+.bg-glass-dark {
+    background: rgba(15, 20, 30, 0.8) !important;
+    backdrop-filter: blur(20px);
+}
+
+.bg-white-glass {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(10px);
+}
+
+.text-light-muted {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.shadow-glow {
+    box-shadow: 0 0 50px rgba(0, 0, 0, 0.5), 0 0 20px rgba(102, 126, 234, 0.2);
+}
+
+.shadow-glow-primary {
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4), 0 0 15px rgba(102, 126, 234, 0.2);
+}
+
+.shadow-glow-primary:hover {
+    box-shadow: 0 12px 35px rgba(102, 126, 234, 0.6), 0 0 25px rgba(102, 126, 234, 0.3);
+}
+
+.glow-text {
+    filter: drop-shadow(0 0 15px rgba(102, 126, 234, 0.6));
+}
+
+.tracking-wide {
+    letter-spacing: 2px;
+}
+
+.status-badge-custom {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-radius: 50px;
+    text-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+.transition-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.transition-hover:hover {
+    background: rgba(255, 255, 255, 0.08) !important;
+    transform: translateY(-5px);
+    border-color: rgba(102, 126, 234, 0.4) !important;
+}
+
+/* ============================================
+   UTILIDADES DE COLOR MORADO (PURPLE)
+   ============================================ */
+.text-purple { color: #6f42c1 !important; }
+.bg-purple { background: linear-gradient(135deg, #6f42c1 0%, #a445b2 100%) !important; }
+.btn-purple { background: linear-gradient(135deg, #6f42c1 0%, #a445b2 100%) !important; color: white !important; }
+.btn-purple:hover { filter: brightness(1.1); transform: translateY(-3px); box-shadow: 0 8px 25px rgba(111, 66, 193, 0.4); }
+.btn-outline-purple { border: 2px solid #6f42c1 !important; color: #6f42c1 !important; background: transparent; }
+.btn-outline-purple:hover { background: #6f42c1 !important; color: white !important; }
+.border-purple { border-color: #6f42c1 !important; }
+.badge-purple { background-color: #6f42c1 !important; color: white !important; }
+
+/* Badges para Proxy UART */
+.bg-info { 
+  background-color: #00f2ff !important; 
+  color: #000 !important; 
+  font-weight: 800 !important;
+}
+/* Badges para Protocolos de Captura */
+.bg-miso-white { background-color: #ffffff !important; color: #000 !important; border: 1px solid #ccc !important; }
+.bg-mosi-blue  { background-color: #007bff !important; color: #fff !important; }
+.bg-cs-orange   { background-color: #fd7e14 !important; color: #fff !important; }
+.bg-sck-gray    { background-color: #6c757d !important; color: #fff !important; }

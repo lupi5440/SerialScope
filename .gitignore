@@ -1,0 +1,40 @@
+# --- WebInterface ---
+WebInterface/node_modules/
+WebInterface/dist/
+WebInterface/.vscode/
+WebInterface/package-lock.json
+WebInterface/.env*
+
+# --- Firmware ---
+# Arduino IDE
+Firmware/**/build/
+Firmware/**/libraries/
+*.hex
+*.elf
+*.bin
+*.zip
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+atmel_devices_lib.code-workspace
+
+# --- OS & Editors ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
