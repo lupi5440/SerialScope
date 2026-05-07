@@ -1,119 +1,122 @@
-# 🔬 SerialScope — Módulo de Pruebas de Protocolos
+# 🔬 SerialScope — Sistema de Análisis de Protocolos
 
-Sistema embebido de validación de buses serie (UART, I²C y SPI) controlado de forma inalámbrica vía **Bluetooth Low Energy (BLE)** desde una interfaz web moderna construida con **Vite + Bootstrap 5**.
+[![Version](https://img.shields.io/badge/Versi%C3%B3n-2.0.0_WiFi_Edition-blueviolet?style=for-the-badge)](https://github.com/lupi5440/SerialScope)
+[![Hardware](https://img.shields.io/badge/Hardware-ESP32-E67E22?style=for-the-badge&logo=espressif)](https://www.espressif.com/en/products/socs/esp32)
+[![Platform](https://img.shields.io/badge/Platform-Vite_/_WebSockets-646CFF?style=for-the-badge&logo=vite)](https://vitejs.dev/)
+
+**SerialScope** es una plataforma educativa y de herramientas para la visualización y aprendizaje de protocolos de comunicación serial (**UART, RS232, I²C y SPI**). Diseñada con una arquitectura híbrida que combina la potencia de **WebSockets (WiFi)** para el sniffing de datos a alta velocidad y **BLE (Bluetooth Low Energy)** para el control de pruebas.
 
 ---
 
 ## 🏗️ Arquitectura del Sistema
 
-```
-┌─────────────────────────────┐        BLE         ┌──────────────────────────┐
-│   Interfaz Web (Vite)       │ ◄─────────────────► │  ESP32 Master (Pruebas)  │
-│   pruebas.html + pruebas.js │                     │  esp32_pruebas_maestro   │
-└─────────────────────────────┘                     └──────────┬───────────────┘
-                                                               │ UART (Serial2)
-                                                    ┌──────────▼───────────────┐
-                                                    │  ESP32 Slave (Destino)   │
-                                                    │  esp32_pruebas_slave     │
-                                                    └──────────────────────────┘
+El sistema se divide en tres componentes principales que interactúan de forma transparente a través de la interfaz web:
+
+```mermaid
+graph TD
+    A[Interfaz Web - Vite] -- "WebSockets (WiFi)" --> B[ESP32 Visualizador]
+    A -- "Bluetooth (BLE)" --> C[ESP32 Maestro]
+    C -- "Bus Físico (UART/I2C/SPI)" --> B
+    C -- "UART" --> D[ESP32 Esclavo]
+    B -- "Captura Pasiva" --> E((Analizador Web))
 ```
 
-### Componentes
-| Componente | Ruta | Descripción |
+### 🛰️ Componentes Hardware
+| Componente | Conectividad | Propósito |
 |---|---|---|
-| **Interfaz Web** | `WebInterface/` | SPA Vite con Bootstrap 5. Controla todo vía BLE |
-| **Firmware Master** | `Firmware/esp32_pruebas_maestro/` | ESP32 principal. Ejecuta pruebas UART, I²C y SPI (MAX6675 y TFT) |
-| **Firmware Slave** | `Firmware/esp32_pruebas_slave/` | ESP32 secundario. Recibe y reenvía mensajes UART para validación cruzada |
+| **Visualizador (Sniffer)** | **WiFi** | Captura tráfico pasivo del bus y lo envía a la web en tiempo real. |
+| **Maestro (Generador)** | **BLE** | "Cerebro" que genera tráfico real, lee sensores y controla periféricos. |
+| **Esclavo (Destino)** | **BLE** | Responde a comandos UART para validar comunicación bidireccional y manda su información recibida a la interfaz. |
 
 ---
 
 ## 🚀 Inicio Rápido
 
-### 1. Interfaz Web
+### 1. Interfaz Web (Dashboard Premium)
+La interfaz utiliza **Vite** para una experiencia rápida y un diseño basado en **Glassmorphism**.
+
 ```bash
 cd WebInterface
 npm install
 npm run dev
 ```
-Abrir: `http://localhost:5173/pages/pruebas.html`
+Accede a `http://localhost:5173` para entrar al panel de control.
 
-### 2. Firmware
-- Abrir `esp32_pruebas_maestro.ino` en Arduino IDE
-- Instalar librerías: `Adafruit GFX`, `Adafruit ST7735`, `MAX6675` (ver sección de librerías)
-- Seleccionar placa: **ESP32 Dev Module**
-- Subir el sketch
+### 2. Firmware (ESP32)
+Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0+** debido al uso de APIs de PWM (`ledcAttach`).
 
----
-
-## 📡 Protocolo de Comunicación BLE
-
-Todos los mensajes viajan como texto plano sobre el servicio **BLE UART (NUS)**:
-
-| Comando | Dirección | Descripción |
-|---|---|---|
-| `PING` | Web → ESP32 | Latencia / test de conexión |
-| `EMU_CONFIG:PROTO:AUTO:PARAMS` | Web → ESP32 | Configura el protocolo activo |
-| `EMU_START` | Web → ESP32 | Inicia el ciclo de lectura automática |
-| `EMU_STOP` | Web → ESP32 | Detiene la emulación |
-| `EMU_MSG:SPI_TFT:<texto>` | Web → ESP32 | Muestra texto en la pantalla TFT |
-| `EMU_MSG:SPI_TFT_BRI:<0-255>` | Web → ESP32 | Ajusta brillo de retroiluminación |
-| `EMU_MSG:UART:<datos>` | Web → ESP32 | Envía datos por UART al Slave |
-| `EMU_OK` / `TFT_OK` | ESP32 → Web | Confirmación de operación exitosa |
-| `RESULTADO:<valor>` | ESP32 → Web | Dato leído del sensor activo |
-
-### Formato EMU_CONFIG
-```
-EMU_CONFIG:UART:AUTO:<baudrate>:<perfil>
-EMU_CONFIG:I2C:AUTO:<direccion_hex>:<velocidad_hz>:<perfil>
-EMU_CONFIG:SPI:AUTO:<modo_0-3>:<perfil>
-```
+**Librerías Requeridas:**
+- `Adafruit GFX` & `Adafruit ST7735` (Para la pantalla TFT)
+- `MAX6675 library` (Para el termopar)
+- `AsyncTCP` & `ESPAsyncWebServer` (Para el Visualizador WiFi)
 
 ---
 
-## 🧪 Protocolos Soportados
+## 🧪 Capacidades de Análisis
 
-### UART
-- Módulo MAX3232 para conversión de niveles RS-232
-- Baudrates: 9600, 19200, 38400, 57600, 115200
-- Comunicación bidireccional Master ↔ Slave
+### 📡 Sniffing Pasivo (Visualizador)
+- **UART / RS232**: Proxy transparente que intercepta y grafica bytes entre dos dispositivos.
+- **I²C**: Captura a nivel de bit mediante interrupciones rápidas en SCL/SDA.
+- **SPI**: Monitoreo de tráfico MOSI/MISO sincronizado con el reloj (SCK).
 
-### I²C
-- **BMP180** — Sensor barométrico (dirección 0x77)
-- **TMP102** — Sensor de temperatura (dirección 0x48 / 0x49)
-- Velocidades: 100 kHz (estándar) y 400 kHz (rápido)
-
-### SPI
-- **MAX6675** — Termopar Tipo K (solo lectura, ~1 muestra/seg)
-- **ST7735** — Pantalla TFT 1.8" 128×160 px con control de brillo PWM
+### 🛠️ Banco de Pruebas (Maestro)
+- **Ejecucion de Sensores**: Tráfico a travez de **BMP180** (I2C) y **TMP102** (I2C).
+- **Control de Periféricos**: Manejo de pantalla **TFT 1.8"** y lectura de **Termopar MAX6675** vía SPI.
+- **Validación UART**: Envío manual de comandos y recepción de respuestas desde el esclavo generando un chat bidireccional.
 
 ---
 
-## 📚 Librerías Requeridas (Arduino IDE)
-
-Instalar desde **Herramientas → Administrar Librerías**:
-
-| Librería | Versión recomendada |
-|---|---|
-| `Adafruit GFX Library` | ≥ 1.11 |
-| `Adafruit ST7735 and ST7789 Library` | ≥ 1.10 |
-| `MAX6675 library` | ≥ 1.1 |
-
-El soporte BLE viene incluido con el **ESP32 Arduino Core ≥ 3.0**.
-
+## 📚 Módulos Educativos
+SerialScope no es solo una herramienta, es una web para comprender los protocolos de comunicación:
+- **Video de funcionamiento**: Muestra del funcionamiento de cada protocolo.
+- **Fundamentos**: Comparativas detalladas entre comunicación síncrona/asíncrona y serial/paralela.
 ---
 
-## 📌 Documentación de Pines
+## 📌 Documentación de Conexiones (Pinouts)
+
+Para obtener detalles precisos sobre el conexionado físico de cada módulo, consulta los siguientes archivos:
 
 | Documento | Descripción |
 |---|---|
-| [`PINOUT_PRUEBAS_MASTER.md`](./PINOUT_PRUEBAS_MASTER.md) | Pines del ESP32 Master (LEDs, UART, I²C, SPI, TFT) |
-| [`PINOUT_PRUEBAS_SLAVE.md`](./PINOUT_PRUEBAS_SLAVE.md) | Pines del ESP32 Slave (LEDs, UART) |
-| [`PINOUT_VISUALIZADOR.md`](./PINOUT_VISUALIZADOR.md) | Pines del ESP32 Visualizador |
+| [📍 Pinout Visualizador](./Firmware/PINOUT_VISUALIZADOR.md) | Pines para el sniffing de UART, I2C y SPI. |
+| [📍 Pinout Maestro](./Firmware/PINOUT_PRUEBAS_MASTER.md) | Pines para control de sensores, TFT y comunicación BLE. |
+| [📍 Pinout Esclavo](./Firmware/PINOUT_PRUEBAS_SLAVE.md) | Configuración del nodo de respuesta UART. |
+
+### Resumen rápido de pines:
+#### Visualizador (WiFi)
+| Función | GPIO |
+|---|---|
+| **LED WiFi (Blanco)** | 12 |
+| **UART Sniff (RX1/TX1)** | 25 / 26 |
+| **UART Sniff (RX2/TX2)** | 33 / 32 |
+| **I2C Sniff (SCL/SDA)** | 22 / 4 |
+| **SPI Sniff (SCK/MISO/MOSI/CS)** | 18 / 19 / 23 / 5 |
+
+#### Maestro (BLE)
+| Función | GPIO |
+|---|---|
+| **TFT (CS/RST/DC)** | 5 / 4 / 2 |
+| **TFT Backlight (PWM)** | 13 |
+| **MAX6675 (CS/DO/CLK)** | 5 / 19 / 18 |
+| **LED BLE (Blanco)** | 32 |
+
+#### Esclavo (BLE)
+| Función | GPIO |
+|---|---|
+| **LED BLE (Blanco)** | 32 |
+| **UART (RX/TX)** | 25 / 26 |
+| **LED Rojo** | 4 |
 
 ---
 
-## ⚠️ Notas Importantes
+## ⚠️ Notas de Seguridad y Hardware
+- **Niveles Lógicos**: Todos los componentes operan a **3.3V**. El uso de 5V sin convertidores puede dañar el ESP32.
+- **Consumo**: El uso de la pantalla TFT y el WiFi simultáneamente puede requerir una fuente de alimentación estable de al menos 500mA.
+- **WiFi**: El Visualizador crea una red propia: `SerialScope_Visualizador`. Conéctate a ella para recibir datos en la web.
 
-- El bus SPI es **compartido** entre el MAX6675 y la pantalla TFT. **No conectar ambos simultáneamente**. Desconectar uno antes de conectar el otro.
-- El control de brillo TFT usa la API `ledcAttach()` del **ESP32 Core 3.0+**. No es compatible con versiones anteriores.
-- Todos los pines operan a **3.3 V**. No conectar directamente a 5 V.
+---
+
+## ✍️ Autor
+**Juan Angel Serrano Carreño**  
+*ESCOM - Instituto Politécnico Nacional*
+
