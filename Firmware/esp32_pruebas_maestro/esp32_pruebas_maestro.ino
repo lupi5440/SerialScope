@@ -29,11 +29,11 @@
 
 // Pines TFT (ST7735 128x160)
 #define TFT_CS    5   
-#define TFT_RST   4 
-#define TFT_DC    2
+#define TFT_RST   26 // Movido para liberar pines de LED
+#define TFT_DC    25 // Movido para liberar pines de LED
 #define TFT_MOSI  23  // SDA en la pantalla
 #define TFT_SCLK  18  // SCK en la pantalla
-#define TFT_LED   13  // Opcional, control de retroiluminación
+#define TFT_LED   27  // Control de retroiluminación (Movido)
 
 // Usar Hardware SPI (más rápido y estable)
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
@@ -50,11 +50,11 @@ bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
 // LEDs de control
-#define LED_MODO_ROJO 25
-#define LED_MODO_AZUL 26
-#define LED_MODO_AMARILLO 27
-#define LED_BLE_BLANCO 32
-#define LED_ERROR_VERDE 33
+#define LED_MODO_ROJO 13
+#define LED_MODO_AZUL 22
+#define LED_MODO_AMARILLO 14
+#define LED_BLE_BLANCO 2
+#define LED_ERROR_VERDE 15
 
 // Estados de los modos del master
 enum Modo { IDLE, UART_EMU, I2C_EMU, SPI_EMU };

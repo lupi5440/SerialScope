@@ -42,10 +42,10 @@ AsyncWebSocket ws("/ws");
 
 // Pines para LEDs indicadores
 #define LED_MODO_ROJO 14
-#define LED_MODO_AZUL 15
+#define LED_MODO_AZUL 27
 #define LED_MODO_AMARILLO 13  
-#define LED_WIFI_BLANCO 12    
-#define LED_ERROR_VERDE 27
+#define LED_WIFI_BLANCO 2    
+#define LED_ERROR_VERDE 15
 
 String currentProtocol = "";
 int ledBlinkTarget = 0;
@@ -178,7 +178,7 @@ void ejecutarComando(String cmd) {
             
             Serial1.end(); Serial2.end();
             // Inicializacion de puertos seriales para UART proxy
-            Serial1.begin(baud, SERIAL_8N1, 25, 26);
+            Serial1.begin(baud, SERIAL_8N1, 16, 17);
             Serial2.begin(baud, SERIAL_8N1, 33, 32); 
             
             //  LED rojo parpadea según baudrate
@@ -267,7 +267,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
  
  // Lectura ultra-rápida de registros para I2C
  #define READ_SCL_FAST ((REG_READ(GPIO_IN_REG) >> 22) & 1)
- #define READ_SDA_FAST ((REG_READ(GPIO_IN_REG) >> 4) & 1)
+ #define READ_SDA_FAST ((REG_READ(GPIO_IN_REG) >> 21) & 1)
  
  // ISR: Se activa cuando cambia el cable de DATOS (SDA)
  void IRAM_ATTR onSDAChange() {
@@ -326,7 +326,7 @@ void setup() {
     server.begin();
 
     // Configuración de Pines Seriales (Sin pinMode previo para evitar conflictos con el driver UART)
-    Serial1.begin(115200, SERIAL_8N1, 25, 26); // RX: 25, TX: 26 (Lado Master)
+    Serial1.begin(115200, SERIAL_8N1, 16, 17); // RX: 16, TX: 17 (Lado Master - Nativo UART2)
     Serial2.begin(115200, SERIAL_8N1, 33, 32); // RX: 33, TX: 32 (Lado Slave)
     
     SPI_Sensing.begin(18, 19, 23, 5);
@@ -338,10 +338,10 @@ void setup() {
     digitalWrite(LED_MODO_ROJO, LOW);
 
     // Configurar interrupciones I2C (estos pines sí necesitan pinMode)
-    pinMode(4, INPUT_PULLUP);
+    pinMode(21, INPUT_PULLUP);
     pinMode(22, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(22), onSCLRising, RISING);
-    attachInterrupt(digitalPinToInterrupt(4), onSDAChange, CHANGE);
+    attachInterrupt(digitalPinToInterrupt(21), onSDAChange, CHANGE);
 
     Serial.println("Visualizador SerialScope WiFi Online.");
     

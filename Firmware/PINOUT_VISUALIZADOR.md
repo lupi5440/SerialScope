@@ -10,10 +10,10 @@ Conecta cada LED con una resistencia de **220 Ω a 330 Ω** entre el pin y GND.
 | Indicador | Pin GPIO | Color LED | Color Cable Sugerido | Comportamiento |
 |:---|:---:|:---|:---|:---|
 | **Modo UART** | **14** 🔴 | 🔴 Rojo | 🔴 Rojo | Parpadea según el baudrate activo. |
-| **Modo I²C** | **15** 🔵 | 🔵 Azul | 🔵 Azul | Fijo si el modo I2C está activo. |
+| **Modo I²C** | **27** 🔵 | 🔵 Azul | 🔵 Azul | Fijo si el modo I2C está activo. |
 | **Modo SPI** | **13** 🟡 | 🟡 Amarillo | 🟡 Amarillo | Fijo si el modo SPI está activo. |
-| **WiFi / Sync** | **12** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando WiFi; fijo al conectar y se apaga. |
-| **Error / OK** | **27** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea al recibir comandos (PING). |
+| **WiFi / Sync** | **2** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando WiFi; fijo al conectar y se apaga. |
+| **Error / OK** | **15** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea al recibir comandos (PING). |
 
 ---
 
@@ -24,8 +24,8 @@ El visualizador intercepta la línea entre el Maestro y el Sensor/Slave.
 
 | Lado Conexión | Función | Pin GPIO | Color Cable Sugerido |
 |:---|:---|:---:|:---|
-| **Maestro (CH1)** | **RX** (escucha) | **25** 🟣 | 🟣 Morado |
-| **Maestro (CH1)** | **TX** (reenvía) | **26** 🟤 | 🟤 Café |
+| **Maestro (CH1)** | **RX** (escucha) | **16** 🟣 | 🟣 Morado (Nativo UART2) |
+| **Maestro (CH1)** | **TX** (reenvía) | **17** 🟤 | 🟤 Café (Nativo UART2) |
 | **Slave (CH2)** | **RX** (escucha) | **33** 🟣 | 🟣 Morado |
 | **Slave (CH2)** | **TX** (reenvía) | **32** 🟤 | 🟤 Café |
 
@@ -37,7 +37,7 @@ Captura datos sin interferir en el bus original.
 | Función | Pin GPIO | Color Cable Sugerido | Nota Técnica |
 |:---|:---:|:---|:---|
 | **SCL** (Reloj) | **22** 🟡 | 🟡 Amarillo | Captura por interrupción ultra-rápida. |
-| **SDA** (Datos) | **4** 🟢 | 🟢 Verde | Detección de START/STOP por hardware. |
+| **SDA** (Datos) | **21** 🟢 | 🟢 Verde | Detección de START/STOP por hardware. |
 
 ---
 

@@ -43,12 +43,19 @@ npm run dev
 Accede a `http://localhost:5173` para entrar al panel de control.
 
 ### 2. Firmware (ESP32)
-Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0+** debido al uso de APIs de PWM (`ledcAttach`).
+Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0.0+** debido al uso de APIs de PWM (`ledcAttach`).
 
 **Librerías Requeridas:**
-- `Adafruit GFX` & `Adafruit ST7735` (Para la pantalla TFT)
-- `MAX6675 library` (Para el termopar)
-- `AsyncTCP` & `ESPAsyncWebServer` (Para el Visualizador WiFi)
+- `Adafruit GFX Library` (v1.11.9)
+- `Adafruit ST7735 and ST7789 Library` (v1.10.3)
+- `MAX6675 library` (v1.1.2)
+- `AsyncTCP` (v1.1.4)
+- `ESPAsyncWebServer` (v3.1.0)
+
+**Software Requerido:**
+- **ESP32 Arduino Core**: 3.0.0 o superior.
+- **Android Studio**: Ladybug | 2024.2.1.
+- **Arduino IDE**: 2.3.2+ o VS Code + PlatformIO.
 
 ---
 

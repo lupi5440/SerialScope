@@ -32,9 +32,9 @@ bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
 // LEDs
-#define LED_MODO_ROJO 25
-#define LED_BLE_BLANCO 32
-#define LED_ERROR_VERDE 33
+#define LED_MODO_ROJO 13
+#define LED_BLE_BLANCO 2
+#define LED_ERROR_VERDE 15
 
 // Variables LEDs
 unsigned long lastBlinkTime = 0;

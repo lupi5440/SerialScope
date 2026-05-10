@@ -9,9 +9,9 @@ Conecta cada LED con una resistencia de **220 Ω a 330 Ω**.
 
 | Indicador | Pin GPIO | Color LED | Color Cable Sugerido | Comportamiento |
 |:---|:---:|:---|:---|:---|
-| **Modo UART** | **25** 🔴 | 🔴 Rojo | 🔴 Rojo | Parpadea según el baudrate (1=9600...5=115200). |
-| **Estado BLE** | **32** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando conexión; fijo al conectar. |
-| **Status OK** | **33** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea al recibir PING o datos del Maestro. |
+| **Modo UART** | **13** 🔴 | 🔴 Rojo | 🔴 Rojo | Parpadea según el baudrate (1=9600...5=115200). |
+| **Estado BLE** | **2** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando conexión; fijo al conectar. |
+| **Status OK** | **15** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea al recibir PING o datos del Maestro. |
 
 ---
 

@@ -9,11 +9,11 @@ Conecta cada LED con una resistencia de **220 Ω a 330 Ω**.
 
 | Indicador | Pin GPIO | Color LED | Color Cable Sugerido | Comportamiento |
 |:---|:---:|:---|:---|:---|
-| **Modo UART** | **25** 🔴 | 🔴 Rojo | 🔴 Rojo | Parpadea según el baudrate (1=9600...5=115200). |
-| **Modo I²C** | **26** 🔵 | 🔵 Azul | 🔵 Azul | Parpadea según frecuencia (1=100k, 2=400k). |
-| **Modo SPI** | **27** 🟡 | 🟡 Amarillo | 🟡 Amarillo | Parpadea según el modo SPI (1 a 4). |
-| **Estado BLE** | **32** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando conexión; fijo al conectar. |
-| **Status OK** | **33** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea en éxitos (PONG) o errores de sensor. |
+| **Modo UART** | **13** 🔴 | 🔴 Rojo | 🔴 Rojo | Parpadea según el baudrate (1=9600...5=115200). |
+| **Modo I²C** | **22** 🔵 | 🔵 Azul | 🔵 Azul | Parpadea con la actividad I2C. |
+| **Modo SPI** | **14** 🟡 | 🟡 Amarillo | 🟡 Amarillo | Parpadea según el modo SPI (1 a 4). |
+| **Estado BLE** | **2** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando conexión; fijo al conectar. |
+| **Status OK** | **15** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea en éxitos (PONG) o errores de sensor. |
 
 ---
 
@@ -43,9 +43,9 @@ Conecta cada LED con una resistencia de **220 Ω a 330 Ω**.
 | **CS** | **5** 🟠 | 🟠 Naranja | Chip Select |
 | **MISO** | **19** ⚪ | ⚪ Blanco | Solo para MAX6675 (DO) |
 | **MOSI** | **23** 🔵 | 🔵 Azul | Solo para TFT (SDA) |
-| **DC** | **2** 🟣 | 🟣 Morado | Solo TFT (Data/Command) |
-| **RST** | **4** 🔵 | 🔵 Azul Claro | Solo TFT (Reset) |
-| **LED** | **13** 🟢 | 🟢 Verde Lima | Control Brillo TFT (PWM) |
+| **DC** | **25** 🟣 | 🟣 Morado | Solo TFT (Data/Command) |
+| **RST** | **26** 🔴 | 🔴 Rojo | Solo TFT (Reset) |
+| **LED** | **27** 🟢 | 🟢 Verde Lima | Control Brillo TFT (PWM) |
 
 ---
 
