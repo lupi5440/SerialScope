@@ -2,28 +2,28 @@
  * =====================================================================================
  *  PROYECTO : SerialScope — Visualizador (Sniffer / Proxy)
  *  ARCHIVO  : esp32_visualizador.ino
- *  AUTOR    : SerialScope Team
  * =====================================================================================
  *
  *  DESCRIPCIÓN:
  *    Firmware del ESP32 Visualizador. Captura tráfico de bus y lo retransmite a la interfaz web vía WebSocket sobre WiFi.
  *
  *  MODOS DE OPERACIÓN:
- *    - UART / RS232 : Proxy transparente bidireccional.
- *                    Todo lo que llega de un lado se reenvía al otro y se reporta a la web.
- *    - I²C         : Sniffing pasivo mediante interrupciones en SCL/SDA.
- *                    Captura bytes a nivel de bit sin interferir en el bus.
- *    - SPI          : Sniffing pasivo mediante interrupciones en SCK y CS.
+ *    - UART (Proxy)        : Todo el trafico recibido por el canal serial 1 lo reenvia al canal serial 2  y viceversa
+ *    - I²C  (Sniffer)      : Recibe por interrupcion todo el trafico de I2C y lo muestra en la web
+ *    - I²C  (Maestro)      : Se comporta como un maestro I2C y puede configurarse para pedir datos a un esclavo 
+ *    - I²C  (Esclavo)      : Se comporta como un esclavo I2C y puede configurarse para recibir datos de un maestro 
+ *    - SPI  (Sniffer)      : Recibe por interrupcion todo el trafico de SPI y lo muestra en la web
+ *    - SPI  (Maestro)      : Se comporta como un maestro SPI y puede configurarse para pedir datos a un esclavo 
+ *    - SPI  (Esclavo)      : Se comporta como un esclavo SPI y puede configurarse para recibir datos de un maestro 
  *
- *  PINOUT:
- *    LEDs     → GPIO 14 (Rojo/UART), 15 (Azul/I2C), 13 (Amarillo/SPI)
- *               GPIO 12 (Blanco/WiFi),  27 (Verde/Error)
- *    UART     → Serial1: RX:25, TX:26  |  Serial2: RX:33, TX:32
- *    I²C      → SCL:22, SDA:4 
+ *  PINOUT SEGURO:
+ *    LEDs     → GPIO 13 (Verde-Status), 4 (Blanco-wifi), 14 (Rojo-UART), 27 (Amarillo-I2C), 26 (Azul-SPI), 25 (Frecuencia-SPI)  
+ *    UART     → Serial1 rempapeado: RX:33, TX:32  |  Serial2: RX:17, TX:16
+ *    I²C      → SCL:22, SDA:21 
  *    SPI      → SCK:18, MISO:19, MOSI:23, CS:5
  *
- *  RED WiFi: "SerialScope_Visualizador" (abierta)
- *  WebSocket: ws://192.168.4.1
+ *  RED WiFi:          "SerialScope_Visualizador"              Password: 12345
+ *  WebSocket:         ws://192.168.4.1                        Puerto:80
  *
  * =====================================================================================
  */
@@ -34,66 +34,131 @@
 #include <Wire.h>
 #include <SPI.h>
 
+// --- CONFIGURACIÓN DE RED ---
 const char* ssid = "SerialScope_Visualizador";
-const char* password = ""; // Red Abierta
+const char* password = "12345678";  //Minimo debe tener 8 caracteres
 
+// Servidores Web y WebSocket
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 
 // Pines para LEDs indicadores
-#define LED_MODO_ROJO 14
-#define LED_MODO_AZUL 27
-#define LED_MODO_AMARILLO 13  
-#define LED_WIFI_BLANCO 2    
-#define LED_ERROR_VERDE 15
+// Pines para LEDs indicadores (Seguros y Ordenados)
+#define LED_STATUS_VERDE   13  // Verde (Alerta)
+#define LED_WIFI_BLANCO    4   // Blanco (WiFi)
+#define LED_UART_ROJO      14  // Rojo (UART)
+#define LED_I2C_AMARILLO   27  // Amarillo (I2C)
+#define LED_SPI_AZUL       26  // Azul (SPI)
+#define LED_FRECUENCIA_SPI 25  // Frecuencia
 
+// Protocolo actual
 String currentProtocol = "";
+
+// Variables para el parpadeo de los LEDs de protocolo
 int ledBlinkTarget = 0;
 int ledBlinkCount = 0;
 bool ledBlinkState = false;
+String comandoPendiente = ""; // Cola para procesar comandos en el loop principal
+
+// Variables para parpadeo de frecuencia SPI
+int freqBlinkTarget = 0;
+int freqBlinkCount = 0;
+bool freqBlinkState = false;
+
+// Variables temporales para el parpadeo de los LEDs de protocolo
 unsigned long lastProtocolLedTime = 0;
 bool ledResting = false;
 
+// Variables temporales para el parpadeo del LED de frecuencia
+unsigned long lastFreqLedTime = 0;
+bool freqResting = false;
+
+// Variables temporales para los LEDs azul y blanco
+unsigned long blueLedOffTime = 0; 
+unsigned long whiteLedOffTime = 0; 
+
+// Declaraciones de interrupciones (ISRs para i2c y spi)
+void IRAM_ATTR onSCLRising();
+void IRAM_ATTR onSDAChange();
+void IRAM_ATTR onSCKRising();
+
+// Funcion para enviar texto al WebSocket
+void wsSend(String texto);
+
+// Funcion para actualizar los LEDs
 void actualizarLedsProtocolo(String proto, int blinks) {
-    // Apagar todos los LEDs de protocolo primero
-    digitalWrite(LED_MODO_ROJO, LOW);
-    digitalWrite(LED_MODO_AZUL, LOW);
-    digitalWrite(LED_MODO_AMARILLO, LOW);
+    // Limpiar el estado de los LEDs
+    digitalWrite(LED_UART_ROJO, LOW);
+    digitalWrite(LED_I2C_AMARILLO, LOW);
+    digitalWrite(LED_SPI_AZUL, LOW);
     
     currentProtocol = proto;
+    ledBlinkTarget = blinks;
+    ledBlinkCount = 0;
+    ledBlinkState = false;
+    ledResting = false;
+    lastProtocolLedTime = millis();
 
-    if (proto == "I2C") {
-        // I2C: LED azul fijo encendido (sniffing pasivo)
-        digitalWrite(LED_MODO_AZUL, HIGH);
-        ledBlinkTarget = 0; // Sin parpadeo
-    } else if (proto == "SPI") {
-        // SPI: LED amarillo fijo encendido (sniffing pasivo)
-        digitalWrite(LED_MODO_AMARILLO, HIGH);
-        ledBlinkTarget = 0; // Sin parpadeo
-    } else {
-        // RS232/UART: LED rojo parpadea según baudrate
-        ledBlinkTarget = blinks;
-        ledBlinkCount = 0;
-        ledBlinkState = false;
-        ledResting = false;
-        lastProtocolLedTime = millis();
-    }
+    // Determinar qué LED prender según el protocolo 
+    if (blinks == 0) {
+        // Modo Sniffer (Fijo)
+        if (proto == "I2C") digitalWrite(LED_I2C_AMARILLO, HIGH); 
+        else if (proto == "SPI") digitalWrite(LED_SPI_AZUL, HIGH);   
+        else if (proto == "UART") digitalWrite(LED_UART_ROJO, HIGH);
+    } 
 }
 
+// Instancia para recervar pines SPI 
 SPIClass SPI_Sensing(VSPI);
+
+// Array para definir modos de SPI
 uint8_t spi_modes[] = {SPI_MODE0, SPI_MODE1, SPI_MODE2, SPI_MODE3};
+
+// Intervalo de tiempo en milisegundos para enviar los datos por WiFi y evitar saturación
+const int FLUSH_INTERVAL = 20;  
+
+
 volatile bool estaConfigurando = false;
+
+//Buffer para UART
 String bufferM2S = "";
 String bufferS2M = "";
+
+// Variables temporales para el parpadeo de los LEDs
 unsigned long lastFlushTime = 0;
 unsigned long lastBlinkTime = 0;
 bool blinkState = false;
 unsigned long greenLedTurnOffTime = 0;
-unsigned long whiteLedOffTime = 0;
 unsigned long redLedOffTime = 0;
-unsigned long blueLedOffTime = 0;
-const int FLUSH_INTERVAL = 20;
+
+// Variables para modos activos (Maestro/Esclavo) I2C y SPI
+enum Role { ROLE_SNIFFER, ROLE_MASTER, ROLE_SLAVE };
+Role i2cRole = ROLE_SNIFFER;
+Role spiRole = ROLE_SNIFFER;
+
+// Memoria virtual para modo Esclavo con 4 bytes de almacenamiento 
+// --- VARIABLES PARA MODO ESCLAVO ---
+// Variables para Esclavo SPI
+bool spiSlaveMode = false;
+int spiSlaveBytePtr = 0;
+int spiSlaveBitPtr = 0;
+uint8_t spiSlaveBuffer[256];
+int spiSlaveBufferSize = 0;
+
+void stopSniffingI2C() {
+    detachInterrupt(digitalPinToInterrupt(22));
+    detachInterrupt(digitalPinToInterrupt(21));
+}
+
+void startSniffingI2C() {
+    Wire.end();
+    pinMode(21, INPUT_PULLUP);
+    pinMode(22, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(22), onSCLRising, RISING);
+    attachInterrupt(digitalPinToInterrupt(21), onSDAChange, CHANGE);
+}
  
+
  // --- VARIABLES PARA SNIFFING SPI ---
  // Usamos un buffer circular de 512 bytes para agrupar bytes antes de enviarlos por WiFi y evitar saturación.
  #define SPI_BUFFER_SIZE 512
@@ -104,6 +169,7 @@ const int FLUSH_INTERVAL = 20;
  volatile uint8_t spiByterx = 0;
  volatile uint8_t spiBytetx = 0;
  volatile int spiBitCnt = 0;
+ volatile unsigned long lastSpiTime = 0;
  
  // Lectura ultra-rápida de registros para SPI (Acceso directo al hardware del ESP32)
  // REG_READ(GPIO_IN_REG) lee el estado de todos los pines en un solo ciclo de reloj.
@@ -112,128 +178,274 @@ const int FLUSH_INTERVAL = 20;
  #define READ_CS_FAST   ((REG_READ(GPIO_IN_REG) >> 5) & 1)
  
  // ISR (Rutina de Interrupción): Se ejecuta cada vez que el reloj SPI (SCK) sube.
- // Se almacena en la memoria IRAM para máxima velocidad de respuesta.
  void IRAM_ATTR onSCKRising() {
-     // Solo capturamos si el Chip Select (CS) está en nivel bajo (activo)
      if (READ_CS_FAST == 0) { 
-         // Construimos el byte desplazando los bits hacia la izquierda (MSB first)
+         if (spiSlaveMode && spiSlaveBufferSize > 0) {
+             uint8_t byteActual = spiSlaveBuffer[spiSlaveBytePtr];
+             int bitValue = (byteActual >> (7 - spiSlaveBitPtr)) & 1;
+             
+             if (bitValue) REG_WRITE(GPIO_OUT_W1TS_REG, (1 << 19)); 
+             else REG_WRITE(GPIO_OUT_W1TC_REG, (1 << 19));         
+             
+             spiSlaveBitPtr++;
+             if (spiSlaveBitPtr >= 8) {
+                 spiSlaveBitPtr = 0;
+                 spiSlaveBytePtr = (spiSlaveBytePtr + 1) % spiSlaveBufferSize;
+             }
+         }
+
          spiByterx = (spiByterx << 1) | READ_MOSI_FAST;
          spiBytetx = (spiBytetx << 1) | READ_MISO_FAST;
          spiBitCnt++;
          
-         // Al completar 8 bits, guardamos los bytes capturados (MOSI y MISO) en el buffer circular
          if (spiBitCnt == 8) {
-             spiRawBuffer[spiWriteIdx] = spiByterx; // Guardar MOSI
+             spiRawBuffer[spiWriteIdx] = spiByterx; 
              spiWriteIdx = (spiWriteIdx + 1) % SPI_BUFFER_SIZE;
-             spiRawBuffer[spiWriteIdx] = spiBytetx; // Guardar MISO
+             spiRawBuffer[spiWriteIdx] = spiBytetx; 
              spiWriteIdx = (spiWriteIdx + 1) % SPI_BUFFER_SIZE;
              
              spiBitCnt = 0;
              spiByterx = 0;
              spiBytetx = 0;
+             lastSpiTime = millis();
          }
      } else {
-         spiBitCnt = 0; // Si CS sube antes de tiempo, reiniciamos el conteo
+         spiBitCnt = 0; 
          spiByterx = 0;
          spiBytetx = 0;
+         if (spiSlaveMode) {
+             spiSlaveBytePtr = 0;
+             spiSlaveBitPtr = 0;
+         }
      }
  }
 
+   // --- UTILIDADES ---
 void wsSend(String texto) {
     if (ws.count() > 0) {
-        String payload = texto + "\n";
-        ws.textAll(payload);
+        ws.textAll(texto);
     }
+}
+
+// --- PARÁMETROS DE CONFIGURACIÓN TÉCNICA ---
+long activeI2CSpeed = 100000;
+int activeI2CAddr = 0x08;
+int activeI2CReg = 0x00;
+long activeSPIFreq = 1000000;
+int activeSPIMode = 0;
+
+// Función auxiliar para extraer parámetros de un comando (Formato: CMD:P1:P2:P3)
+String getParam(String data, int index) {
+    int found = 0;
+    int strIndex[] = {0, -1};
+    int maxIndex = data.length() - 1;
+
+    for (int i = 0; i <= maxIndex && found <= index; i++) {
+        if (data.charAt(i) == ':' || i == maxIndex) {
+            found++;
+            strIndex[0] = strIndex[1] + 1;
+            strIndex[1] = (i == maxIndex) ? i + 1 : i;
+        }
+    }
+    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
 //  Interpretación de comandos que llegan desde la página web vía WebSocket
 void ejecutarComando(String cmd) {
-    Serial.print(">> Comando WS Recibido: "); Serial.println(cmd);
+    Serial.println("[WS] >>> " + cmd);
     
-    //  PING: verifica la latencia y confirma que la conexión está viva
+    // 1. PING
     if (cmd == "PING") { 
         wsSend("PONG"); 
-        digitalWrite(LED_ERROR_VERDE, HIGH);
+        digitalWrite(LED_STATUS_VERDE, HIGH);
         greenLedTurnOffTime = millis() + 500; 
         return; 
     }
     
-    //  CONFIG: Configuración de modo de operación (RS232, I2C, SPI)
-    //  Parámetros: Proto = RS232 | I2C | SPI; Val = Baudrate | Velocidad | Modo (0-3)
+    // 2. CONFIG: Configuración de modo (RS232, I2C, SPI)
     if (cmd.startsWith("CONFIG:")) {
         estaConfigurando = true;
-        int first = cmd.indexOf(':');
-        int second = cmd.indexOf(':', first + 1);
-        String proto = cmd.substring(first + 1, second);
-        String val = cmd.substring(second + 1);
+        String proto = getParam(cmd, 1);
+        String p2 = getParam(cmd, 2);
+        String role = "SNIFFER";
+        int blinks = 0;
 
-        if (proto == "RS232") {
-
-            //  RS232: Configuración de baudrate
-            long baud = val.toInt();
-            Serial.println("\n[CONFIG] >>> Modo UART Proxy Activado <<<");
-            Serial.print("[CONFIG] Baudrate: "); Serial.println(baud);
-            Serial.println("[CONFIG] Pines CH1 (Master): RX=25, TX=26");
-            Serial.println("[CONFIG] Pines CH2 (Slave):  RX=33, TX=32");
+        // --- PARSING INTELIGENTE (Compatible con 3 o 4 partes) ---
+        // Si el segundo parámetro empieza con un número, es el formato viejo (ej: CONFIG:RS232:115200)
+        bool isOldFormat = (p2.length() > 0 && isDigit(p2.charAt(0)));
+        
+        if (proto == "UART") {
+            long baud = isOldFormat ? p2.toInt() : getParam(cmd, 3).toInt();
+            role = isOldFormat ? "PROXY" : p2; // UART es siempre Proxy/Activo
             
+            Serial.println("[CONFIG] >>> UART Proxy a " + String(baud) + " (" + role + ")");
             Serial1.end(); Serial2.end();
-            // Inicializacion de puertos seriales para UART proxy
             Serial1.begin(baud, SERIAL_8N1, 16, 17);
-            Serial2.begin(baud, SERIAL_8N1, 33, 32); 
+            Serial2.begin(baud, SERIAL_8N1, 33, 32);
             
-            //  LED rojo parpadea según baudrate
-            int blinks = 1;
-            if (baud == 19200) blinks = 2;
-            else if (baud == 38400) blinks = 3;
-            else if (baud == 57600) blinks = 4;
-            else if (baud == 115200) blinks = 5;
-            actualizarLedsProtocolo("RS232", blinks);
+            // Para UART siempre parpadeamos porque es modo Proxy Activo
+            blinks = (baud >= 115200) ? 5 : 1;
+            actualizarLedsProtocolo("UART", blinks);
+            
+            // Limpiar parpadeo de frecuencia SPI al cambiar a UART
+            freqBlinkTarget = 0;
+            digitalWrite(LED_FRECUENCIA_SPI, LOW);
 
         } else if (proto == "I2C") {
+            activeI2CSpeed = isOldFormat ? p2.toInt() : getParam(cmd, 3).toInt();
+            role = isOldFormat ? "SNIFFER" : p2;
+            
+            String addrStr = isOldFormat ? getParam(cmd, 3) : getParam(cmd, 4);
+            String regStr = isOldFormat ? getParam(cmd, 4) : getParam(cmd, 5);
+            
+            if (addrStr != "") activeI2CAddr = strtol(addrStr.c_str(), NULL, 16);
+            if (regStr != "") activeI2CReg = strtol(regStr.c_str(), NULL, 16);
 
-            //  I2C: Configuración de velocidad (100kHz o 400kHz)
-            long speed = val.toInt();
-            Serial.println(">> [CONFIG] Modo I2C configurado. Velocidad: " + String(speed));
-            actualizarLedsProtocolo("I2C", (speed == 400000) ? 2 : 1);
+            Serial.println("[CONFIG] >>> I2C Speed:" + String(activeI2CSpeed) + " Addr:0x" + String(activeI2CAddr, HEX) + " (" + role + ")");
+            startSniffingI2C(); 
+            
+            if (role != "SNIFFER") blinks = (activeI2CSpeed == 400000) ? 2 : 1;
+            actualizarLedsProtocolo("I2C", blinks);
+
+            // Limpiar parpadeo de frecuencia SPI al cambiar a I2C
+            freqBlinkTarget = 0;
+            digitalWrite(LED_FRECUENCIA_SPI, LOW);
 
         } else if (proto == "SPI") {
-            
-            //  SPI: Configuración de modo (0-3)
-            //  Aqui solo escuchamos cuando se active CS, por eso no necesitamos configurar las interrupciones de cada pin
-            Serial.println(">> [CONFIG] Activando Sniffer SPI por Interrupciones...");
-            // Desactivacion de interrupciones previas y finalizacion de SPI
+            activeSPIFreq = isOldFormat ? p2.toInt() : getParam(cmd, 3).toInt();
+            role = isOldFormat ? "SNIFFER" : p2;
+            activeSPIMode = isOldFormat ? getParam(cmd, 3).toInt() : getParam(cmd, 4).toInt();
+
+            Serial.println("[CONFIG] >>> SPI Freq:" + String(activeSPIFreq) + " Mode:" + String(activeSPIMode) + " (" + role + ")");
+
             detachInterrupt(digitalPinToInterrupt(18));
             SPI_Sensing.end();
-            // Configuración de pines como entradas para lectura
-            pinMode(18, INPUT); // SCK
-            pinMode(23, INPUT); // MOSI
-            pinMode(19, INPUT); // MISO
-            pinMode(5, INPUT);  // CS
-            // Reseteo de variables SPI
-            spiBitCnt = 0;
-            spiReadIdx = 0;
-            spiWriteIdx = 0;
-            // Activación de interrupciones para el pin 18 (SCK)
+            pinMode(18, INPUT); pinMode(23, INPUT); pinMode(19, INPUT); pinMode(5, INPUT);
+            spiBitCnt = 0; spiReadIdx = 0; spiWriteIdx = 0;
             attachInterrupt(digitalPinToInterrupt(18), onSCKRising, RISING);
-            // Indicador de modo SPI
-            actualizarLedsProtocolo("SPI", 0);
-        }
+            
+            if (role != "SNIFFER") blinks = activeSPIMode + 1;
+            actualizarLedsProtocolo("SPI", blinks);
 
- else if (proto == "PROXY") {
-            // UART siempre opera en modo proxy
-            Serial.println(">> [INFO] UART siempre en modo proxy transparente.");
+            // Configurar parpadeo de frecuencia SPI (No bloqueante)
+            if (role != "SNIFFER") {
+                freqBlinkTarget = 1; // 1MHz
+                if (activeSPIFreq == 4000000) freqBlinkTarget = 2;
+                else if (activeSPIFreq == 8000000) freqBlinkTarget = 3;
+                else if (activeSPIFreq == 16000000) freqBlinkTarget = 4;
+                else if (activeSPIFreq == 20000000) freqBlinkTarget = 5;
+                
+                freqBlinkCount = 0;
+                freqBlinkState = false;
+                freqResting = false;
+                lastFreqLedTime = millis();
+            } else {
+                freqBlinkTarget = 0;
+                digitalWrite(LED_FRECUENCIA_SPI, LOW);
+            }
         }
         
-        delay(50); 
-        wsSend("CONFIG_OK");
         estaConfigurando = false;
+        Serial.println("[SISTEMA] >>> Puertos configurados con éxito");
+        wsSend("READY:PUERTOS_OK");
+        return;
+    }
+
+    // 3. COMANDOS ACTIVOS (Solo si no estamos en CONFIG)
+       
+    // I2C MASTER SEND
+    if (cmd.startsWith("I2C_SEND:")) {
+        int f = cmd.indexOf(':');
+        int s = cmd.indexOf(':', f+1);
+        String addrStr = cmd.substring(f+1, s);
+        String dataStr = cmd.substring(s+1);
+        int addr = strtol(addrStr.c_str(), NULL, 16);
+        
+        stopSniffingI2C();
+        Wire.begin(21, 22);
+        Wire.setClock(activeI2CSpeed); 
+    
+        // RE-INICIALIZACIÓN CRÍTICA: El bus I2C puede resetear el modo de los pines cercanos
+        pinMode(LED_UART_ROJO, OUTPUT);
+        pinMode(LED_I2C_AMARILLO, OUTPUT);
+        pinMode(LED_SPI_AZUL, OUTPUT);
+        pinMode(LED_WIFI_BLANCO, OUTPUT);
+        pinMode(LED_STATUS_VERDE, OUTPUT);
+        pinMode(LED_FRECUENCIA_SPI, OUTPUT);
+
+        Wire.beginTransmission(addr);
+        
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0) Wire.write((uint8_t)strtol(b.c_str(), NULL, 16));
+                start = i + 1;
+            }
+        }
+        uint8_t err = Wire.endTransmission();
+        Wire.end();
+        startSniffingI2C();
+        wsSend(err == 0 ? "I2C_TX_OK" : "I2C_TX_ERR");
+    }
+
+    // SPI SLAVE EMULATION
+    if (cmd.startsWith("SPI_SLAVE_ON:")) {
+        int f = cmd.indexOf(':');
+        String dataStr = cmd.substring(f+1);
+        
+        Serial.println("[MODO ACTIVO] >>> Configurando Esclavo SPI Emulado...");
+        spiSlaveBufferSize = 0;
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0 && spiSlaveBufferSize < 256) {
+                    spiSlaveBuffer[spiSlaveBufferSize++] = (uint8_t)strtol(b.c_str(), NULL, 16);
+                }
+                start = i + 1;
+            }
+        }
+        
+        pinMode(19, OUTPUT); // MISO como salida para responder
+        spiSlaveMode = true;
+        spiSlaveBytePtr = 0;
+        spiSlaveBitPtr = 0;
+        
+        Serial.printf("[SISTEMA] >>> Modo Esclavo SPI Activo con %d bytes\n", spiSlaveBufferSize);
+        wsSend("READY:PUERTOS_OK");
+    }
+
+    // SPI MASTER SEND
+    if (cmd.startsWith("SPI_SEND:")) {
+        int f = cmd.indexOf(':');
+        String dataStr = cmd.substring(f+1);
+        
+        detachInterrupt(digitalPinToInterrupt(18));
+        SPI.begin(18, 19, 23, 5); 
+        SPI.beginTransaction(SPISettings(activeSPIFreq, MSBFIRST, spi_modes[activeSPIMode]));
+        digitalWrite(5, LOW);
+        
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0) SPI.transfer((uint8_t)strtol(b.c_str(), NULL, 16));
+                start = i + 1;
+            }
+        }
+        digitalWrite(5, HIGH);
+        SPI.end();
+        pinMode(18, INPUT);
+        attachInterrupt(digitalPinToInterrupt(18), onSCKRising, RISING);
+        wsSend("SPI_TX_OK");
     }
 }
 
 //  Interpretación de comandos enviados desde la página web vía WebSocket
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     if (type == WS_EVT_CONNECT) {
-        Serial.printf(">> [WiFi] Cliente conectado a WebSockets (ID: %u)\n", client->id());
+        Serial.printf("[WiFi] >>> Cliente conectado a WebSockets (ID: %u)\n", client->id());
         client->text("Conectado al Visualizador SerialScope");
         // Al conectar: encender LED blanco y programar su apagado (5 seg)
         digitalWrite(LED_WIFI_BLANCO, HIGH);
@@ -250,20 +462,26 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
                 msg += (char)data[i];
             }
             msg.trim();
-            ejecutarComando(msg);
+            // GUARDAR COMANDO PARA EL LOOP (No ejecutar aquí para evitar crash)
+            comandoPendiente = msg;
         }
     }
 }
+
+// ****************************************************************************************
+//                                       Sniffing I2C        
+// ****************************************************************************************
+
  
  // --- VARIABLES PARA SNIFFING I2C ---
  #define I2C_BUFFER_SIZE 1024
  volatile uint8_t i2cRawBuffer[I2C_BUFFER_SIZE]; // Almacén circular para los bytes capturados
- volatile int i2cWriteIdx = 0;                  // Dónde escribe el sniffer (interrupciones)
- int i2cReadIdx = 0;                           // Dónde lee el programa principal (loop)
- volatile unsigned long lastI2cTime = 0;       // Marca de tiempo para detectar fin de ráfaga
- volatile bool i2cStarted = false;             // Flag que indica si hay una comunicación activa
- volatile int i2cBitCount = 0;                 // Contador de bits (0 a 8)
- volatile uint8_t i2cCurrentByte = 0;          // Byte que se está construyendo bit a bit
+ volatile int i2cWriteIdx = 0;                   // Dónde escribe el sniffer (interrupciones)
+ int i2cReadIdx = 0;                             // Dónde lee el programa principal (loop)
+ volatile unsigned long lastI2cTime = 0;         // Marca de tiempo para detectar fin de ráfaga
+ volatile bool i2cStarted = false;               // Flag que indica si hay una comunicación activa
+ volatile int i2cBitCount = 0;                   // Contador de bits (0 a 8)
+ volatile uint8_t i2cCurrentByte = 0;            // Byte que se está construyendo bit a bit
  
  // Lectura ultra-rápida de registros para I2C
  #define READ_SCL_FAST ((REG_READ(GPIO_IN_REG) >> 22) & 1)
@@ -306,38 +524,56 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
      }
  }
 
-void setup() {
-    //  Inicialización de pines de LEDs y comunicación serial para serial monitor del IDE Arduino
-    Serial.begin(115200);
-    pinMode(LED_MODO_ROJO, OUTPUT);
-    pinMode(LED_MODO_AZUL, OUTPUT);
-    pinMode(LED_MODO_AMARILLO, OUTPUT);
-    pinMode(LED_WIFI_BLANCO, OUTPUT);
-    pinMode(LED_ERROR_VERDE, OUTPUT);
-    actualizarLedsProtocolo("", 0);
-    digitalWrite(LED_WIFI_BLANCO, LOW);
-    digitalWrite(LED_ERROR_VERDE, LOW);
+// ****************************************************************************************
+//                                    SETUP PRINCIPAL          
+// ****************************************************************************************
 
+void setup() {
+    //  Inicialización de comunicación serial para serial monitor del IDE Arduino
+    Serial.begin(115200);
+
+    // Configuración de pines para LEDs
+    pinMode(LED_UART_ROJO, OUTPUT);
+    pinMode(LED_SPI_AZUL, OUTPUT);
+    pinMode(LED_I2C_AMARILLO, OUTPUT);
+    pinMode(LED_WIFI_BLANCO, OUTPUT);
+    pinMode(LED_STATUS_VERDE, OUTPUT);
+    pinMode(LED_FRECUENCIA_SPI, OUTPUT);
+    
+    // Estado inicial de LEDs
+    digitalWrite(LED_UART_ROJO, LOW);
+    digitalWrite(LED_SPI_AZUL, LOW);
+    digitalWrite(LED_I2C_AMARILLO, LOW);
+    digitalWrite(LED_WIFI_BLANCO, LOW);
+    digitalWrite(LED_STATUS_VERDE, LOW);
+    digitalWrite(LED_FRECUENCIA_SPI, LOW);
+    actualizarLedsProtocolo("", 0);
+    
+    // Configura el punto de acceso Wi-Fi
     WiFi.softAP(ssid, password);
     digitalWrite(LED_WIFI_BLANCO, HIGH);
     
+    // Inicia el servidor web para manejar la comunicación con la interfaz web
     ws.onEvent(onEvent);
     server.addHandler(&ws);
     server.begin();
 
     // Configuración de Pines Seriales (Sin pinMode previo para evitar conflictos con el driver UART)
-    Serial1.begin(115200, SERIAL_8N1, 16, 17); // RX: 16, TX: 17 (Lado Master - Nativo UART2)
-    Serial2.begin(115200, SERIAL_8N1, 33, 32); // RX: 33, TX: 32 (Lado Slave)
+    Serial1.begin(115200, SERIAL_8N1, 16, 17); // RX: 16, TX: 17 (Nativo UART2)
+    Serial2.begin(115200, SERIAL_8N1, 33, 32); // RX: 33, TX: 32 (Remapeado de UART1 puede llevar lentitud)
     
+    // Configuración de Pines SPI (Sin pinMode previo para evitar conflictos con el driver SPI)
+    // NOTA: SPI_Sensign es muy agresivo y al inicializar puede desconfigurar puertos cercanos a los del SPI 
     SPI_Sensing.begin(18, 19, 23, 5);
 
     // Restaurar LEDs como OUTPUT tras inicializar SPI
-    pinMode(LED_MODO_AMARILLO, OUTPUT);
-    pinMode(LED_MODO_AZUL, OUTPUT);
-    pinMode(LED_MODO_ROJO, OUTPUT);
-    digitalWrite(LED_MODO_ROJO, LOW);
+    pinMode(LED_I2C_AMARILLO, OUTPUT);
+    pinMode(LED_SPI_AZUL, OUTPUT);
+    pinMode(LED_UART_ROJO, OUTPUT);
+    pinMode(LED_STATUS_VERDE, OUTPUT);
+    digitalWrite(LED_UART_ROJO, LOW);
 
-    // Configurar interrupciones I2C (estos pines sí necesitan pinMode)
+    // Configurar interrupciones I2C 
     pinMode(21, INPUT_PULLUP);
     pinMode(22, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(22), onSCLRising, RISING);
@@ -345,18 +581,33 @@ void setup() {
 
     Serial.println("Visualizador SerialScope WiFi Online.");
     
-    // Optimización: Reservar memoria para los buffers UART para evitar fragmentación
-    bufferM2S.reserve(256);
-    bufferS2M.reserve(256);
+    // Reservar memoria para los buffers UART para evitar fragmentación (512 para coincidir con el límite de envío)
+    bufferM2S.reserve(512);
+    bufferS2M.reserve(512);
 }
 
+// ****************************************************************************************
+//                                    MAIN LOOP          
+// ****************************************************************************************
+
 void loop() {
+
+    // Limpieza de clientes WebSocket desconectados
     ws.cleanupClients();
+
+    // PROCESAR COMANDOS PENDIENTES (Seguro, en el hilo principal)
+    if (comandoPendiente != "") {
+        String cmd = comandoPendiente;
+        comandoPendiente = ""; // Limpiar antes de ejecutar
+        ejecutarComando(cmd);
+    }
     
+    if (estaConfigurando) return;
+
     // Lógica del LED Blanco: Parpadea si no hay clientes. 
-    // Si hay clientes, se queda encendido 5 segundos y luego se apaga.
+    // Si hay clientes, se queda encendido 1 segundo y luego se apaga.
     if (ws.count() == 0) {
-        if (millis() - lastBlinkTime > 500) {
+        if (millis() - lastBlinkTime > 1000) {
             blinkState = !blinkState;
             digitalWrite(LED_WIFI_BLANCO, blinkState ? HIGH : LOW);
             lastBlinkTime = millis();
@@ -369,44 +620,79 @@ void loop() {
                 digitalWrite(LED_WIFI_BLANCO, LOW); // Apagar tras el tiempo
                 whiteLedOffTime = 0; 
             } else {
-                digitalWrite(LED_WIFI_BLANCO, HIGH); // Mantener encendido
+                digitalWrite(LED_WIFI_BLANCO, HIGH); // Mantener encendido indicando que no hay clientes
             }
         }
     }
 
     // Apagar temporalmente el LED verde tras un PONG
     if (greenLedTurnOffTime > 0 && millis() > greenLedTurnOffTime) {
-        digitalWrite(LED_ERROR_VERDE, LOW);
+        digitalWrite(LED_STATUS_VERDE, LOW);
         greenLedTurnOffTime = 0;
     }
+
+    // Apagar temporalmente el LED rojo tras un comando de reinicio
     if (redLedOffTime > 0 && millis() > redLedOffTime) {
-        digitalWrite(LED_MODO_ROJO, LOW);
+        digitalWrite(LED_UART_ROJO, LOW);
         redLedOffTime = 0;
     }
+
+    // Apagar temporalmente el LED azul tras un comando de reinicio
     if (blueLedOffTime > 0 && millis() > blueLedOffTime) {
-        digitalWrite(LED_MODO_AZUL, LOW);
+        digitalWrite(LED_SPI_AZUL, LOW);
         blueLedOffTime = 0;
     }
 
-    // Lógica de parpadeo de LEDs: solo UART/RS232 parpadea, I2C y SPI son fijos (ya se encienden en actualizarLedsProtocolo)
-    if (currentProtocol == "RS232" && ledBlinkTarget > 0) {
+    // --- LÓGICA DE PARPADEO FRECUENCIA SPI (PIN 4) ---
+    if (freqBlinkTarget > 0) {
+        unsigned long currentMillis = millis();
+        if (freqResting) {
+            if (currentMillis - lastFreqLedTime > 1500) {
+                freqResting = false;
+                freqBlinkCount = 0;
+                lastFreqLedTime = currentMillis;
+            }
+        } else {
+            if (currentMillis - lastFreqLedTime > 150) {
+                lastFreqLedTime = currentMillis;
+                freqBlinkState = !freqBlinkState;
+                digitalWrite(LED_FRECUENCIA_SPI, freqBlinkState ? HIGH : LOW);
+                if (!freqBlinkState) {
+                    freqBlinkCount++;
+                    if (freqBlinkCount >= freqBlinkTarget) {
+                        freqResting = true;
+                        digitalWrite(LED_FRECUENCIA_SPI, LOW);
+                    }
+                }
+            }
+        }
+    }
+
+    // Lógica de parpadeo de LEDs 
+    if (ledBlinkTarget > 0) {
+        int targetLed = LED_UART_ROJO; 
+        if (currentProtocol == "I2C") targetLed = LED_I2C_AMARILLO;
+        else if (currentProtocol == "SPI") targetLed = LED_SPI_AZUL;
+
         unsigned long currentMillis = millis();
         if (ledResting) {
+            // Descanso del led entre parpadeos
             if (currentMillis - lastProtocolLedTime > 1500) {
                 ledResting = false;
                 ledBlinkCount = 0;
                 lastProtocolLedTime = currentMillis;
             }
         } else {
+            // Tiempo que permanece encendido el led por parpadeo
             if (currentMillis - lastProtocolLedTime > 200) {
                 lastProtocolLedTime = currentMillis;
                 ledBlinkState = !ledBlinkState;
-                digitalWrite(LED_MODO_ROJO, ledBlinkState ? HIGH : LOW);
+                digitalWrite(targetLed, ledBlinkState ? HIGH : LOW);
                 if (!ledBlinkState) {
                     ledBlinkCount++;
                     if (ledBlinkCount >= ledBlinkTarget) {
                         ledResting = true;
-                        digitalWrite(LED_MODO_ROJO, LOW);
+                        digitalWrite(targetLed, LOW);
                     }
                 }
             }
@@ -421,18 +707,15 @@ void loop() {
             // Enviamos los datos en pares (MOSI, MISO) para que la interfaz los grafique correctamente
             data += String(spiRawBuffer[spiReadIdx], HEX) + ",";
             spiReadIdx = (spiReadIdx + 1) % SPI_BUFFER_SIZE;
-            
             // Limitamos el paquete pero aseguramos que termine en un par (índice par)
             if (data.length() > 150 && (spiReadIdx % 2 == 0)) break; 
         }
         wsSend(data);
         
-        // Efecto visual de actividad
-        digitalWrite(LED_MODO_AMARILLO, HIGH);
-        redLedOffTime = millis() + 20;
+        // Efecto visual de actividad SPI
+        digitalWrite(LED_SPI_AZUL, HIGH);
+        blueLedOffTime = millis() + 20;
     }
-
-
 
     if (estaConfigurando) return;
 
@@ -449,11 +732,12 @@ void loop() {
         uint8_t c = Serial2.read();
         Serial1.write(c); 
         bufferS2M += String(c, HEX) + ",";
-        if (bufferS2M.length() > 500) break;
+        
+        if (bufferS2M.length() > 512) break;  
     }
 
     // --- SNIFFING I2C (Procesamiento de Buffer) ---
-    // Al igual que en SPI, extraemos los datos capturados por las interrupciones
+    // Extraemos los datos capturados por las interrupciones
     if (i2cReadIdx != i2cWriteIdx && (millis() - lastI2cTime > 10)) {
         String data = "I2C_RECV_BUF:";
         while (i2cReadIdx != i2cWriteIdx) {
@@ -466,13 +750,13 @@ void loop() {
     // Flush de Buffers UART 
     if (millis() - lastFlushTime > FLUSH_INTERVAL) {
         if (bufferM2S.length() > 0) {
-            Serial.println(">> [WiFi] Enviando Buffer CH1 -> CH2");
-            wsSend("RS232_RECV_BUF:M2S:" + bufferM2S);
+            Serial.println("[WiFi] >> Enviando Buffer CH1 -> CH2");
+            wsSend("UART_RECV_BUF:M2S:" + bufferM2S);
             bufferM2S = "";
         }
         if (bufferS2M.length() > 0) {
-            Serial.println("<< [WiFi] Enviando Buffer CH2 -> CH1");
-            wsSend("RS232_RECV_BUF:S2M:" + bufferS2M);
+            Serial.println("[WiFi] >> Enviando Buffer CH2 -> CH1");
+            wsSend("UART_RECV_BUF:S2M:" + bufferS2M);
             bufferS2M = "";
         }
         lastFlushTime = millis();

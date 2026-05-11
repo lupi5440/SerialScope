@@ -2,20 +2,31 @@
  * =====================================================================================
  *  PROYECTO : SerialScope — Módulo de Pruebas (Master)
  *  ARCHIVO  : esp32_pruebas_maestro.ino
- *  AUTOR    : Juan Angel Serrano Carreñó
  * =====================================================================================
  *
  *  DESCRIPCIÓN:
- *    Este es el "Cerebro" del banco de pruebas (Master).
- *    Genera tráfico real en UART, I2C y SPI para que el Visualizador lo capture.
+ *    Este es el "Cerebro" del banco de pruebas (Master). Su función es generar
+ *    tráfico real y controlado en los buses UART, I2C y SPI para su análisis.
  *
- *  CARACTERÍSTICAS:
- *    - UART: Envía mensajes al Slave a diferentes baudios.
- *    - I2C: Escucha y escritura para sensores (BMP180, TMP102).
- *    - SPI: Controla una pantalla TFT o lee un termopar MAX6675.
+ *  CARACTERÍSTICAS TÉCNICAS:
+ *    - BLE UART: Control inalámbrico mediante interfaz Bluetooth.
+ *    - UART Gen: Generador de mensajes seriales a baudios variables.
+ *    - I2C Node: Simulación de sensores industriales (BMP180 / TMP102).
+ *    - SPI Gen: Control de pantallas TFT y lectura de termopares (MAX6675).
  *
- * =====================================================================================
- */
+ *  CONEXIÓN Protocolos:
+ *    - UART Gen   : RX:16, TX:17
+ *    - I2C Node   : SDA:21, SCL:22
+ *    - SPI Sensor : SCK:18, MISO:19, MOSI:23, CS:2 (MAX6675)
+ *    - TFT Aux    : RST:26, DC:25, LED:27, CS:5
+ *
+ *  INDICADORES DE MODO :
+ *    - Verde (Status)  : GPIO 13
+ *    - Blanco (BLE)    : GPIO 4
+ *    - Rojo (UART)     : GPIO 14
+ *    - Amarillo (I2C)  : GPIO 33
+ *    - Azul (SPI)      : GPIO 32
+ *=====================================================================================*/
 
 #include <BLEDevice.h>
 #include <BLEServer.h>
@@ -27,16 +38,20 @@
 #include <Adafruit_GFX.h>    
 #include <Adafruit_ST7735.h> 
 
-// Pines TFT (ST7735 128x160)
-#define TFT_CS    5   
-#define TFT_RST   26 // Movido para liberar pines de LED
-#define TFT_DC    25 // Movido para liberar pines de LED
-#define TFT_MOSI  23  // SDA en la pantalla
-#define TFT_SCLK  18  // SCK en la pantalla
-#define TFT_LED   27  // Control de retroiluminación (Movido)
+// --- BUS SPI ESTÁNDAR (Compartido) ---
+#define SPI_SCK   18
+#define SPI_MISO  19
+#define SPI_MOSI  23
+#define SPI_CS    5  
 
-// Usar Hardware SPI (más rápido y estable)
-Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+// --- PINES AUXILIARES PANTALLA ---
+#define TFT_RST   26  // Reset (Reinicio físico de la pantalla)
+#define TFT_DC    25  // Data/Command (Selector de Datos o Comandos)
+#define TFT_LED   27  // Backlight (Control de Brillo/Luz de fondo)
+
+// Objetos de Hardware (SPI)
+MAX6675 thermocouple(SPI_SCK, SPI_CS, SPI_MISO);
+Adafruit_ST7735 tft = Adafruit_ST7735(SPI_CS, TFT_DC, TFT_RST);
 String spiProfile = "";
 
 // UUIDs BLE UART Service
@@ -49,12 +64,14 @@ BLECharacteristic *pTxCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-// LEDs de control
-#define LED_MODO_ROJO 13
-#define LED_MODO_AZUL 22
-#define LED_MODO_AMARILLO 14
-#define LED_BLE_BLANCO 2
-#define LED_ERROR_VERDE 15
+// ****************************************************************************************
+//                                    LEDs DE CONTROL          
+// ****************************************************************************************
+#define LED_STATUS_VERDE  13  // Verde (Alerta)
+#define LED_BLE_BLANCO    4   // Blanco (BLE)
+#define LED_UART_ROJO     14  // Rojo (UART)
+#define LED_I2C_AMARILLO  33  // Amarillo (I2C)
+#define LED_SPI_AZUL      32  // Azul (SPI)
 
 // Estados de los modos del master
 enum Modo { IDLE, UART_EMU, I2C_EMU, SPI_EMU };
@@ -62,16 +79,14 @@ Modo modoActual = IDLE;
 unsigned long ultimaTarea = 0;
 unsigned long contadorUART = 0;
 bool emulacionActiva = false;
+String comandoPendiente = ""; // Cola para procesar comandos BLE 
 
 // Parámetros Dinámicos I2C
 String i2cProfile = "";
 int i2cAddress = 0x77; // Default BMP180
 
-// Pines SPI MAX6675
-int thermoDO = 19;
-int thermoCS = 5;
-int thermoCLK = 18;
-MAX6675 thermocouple(thermoCLK, thermoCS, thermoDO);
+// Objetos de Hardware
+// (Nota: thermocouple y tft ya están definidos arriba en la sección de pines)
 
 // Variables para el parpadeo de los LEDs
 int ledBlinkTarget = 0;
@@ -87,13 +102,15 @@ void ejecutarComando(String comando);
 void bleSend(String texto);
 void actualizarLeds(Modo m, int blinks);
 
-// Implementación de Callbacks para BLE
+// ****************************************************************************************
+//                                  CALLBACKS BLE UART          
+// ****************************************************************************************
+
 class MyServerCallbacks: public BLEServerCallbacks {
 
     // Callback cuando el dispositivo se conecta
     void onConnect(BLEServer* pServer) { 
         deviceConnected = true; 
-        digitalWrite(LED_BLE_BLANCO, HIGH); 
         Serial.println("Bluetooth Conectado"); 
     }
 
@@ -111,19 +128,19 @@ class MyServerCallbacks: public BLEServerCallbacks {
 class MyCallbacks: public BLECharacteristicCallbacks {
 
     void onWrite(BLECharacteristic *pCharacteristic) {
-        String rxValue = pCharacteristic->getValue();
+        String rxValue = pCharacteristic->getValue().c_str();
         if (rxValue.length() > 0) {
             rxValue.trim();
-            ejecutarComando(rxValue);
+            comandoPendiente = rxValue;
         }
     }
 };
 
 // Función para actualizar los LEDs
 void actualizarLeds(Modo m, int blinks) {
-    digitalWrite(LED_MODO_ROJO, LOW);
-    digitalWrite(LED_MODO_AZUL, LOW);
-    digitalWrite(LED_MODO_AMARILLO, LOW);
+    digitalWrite(LED_UART_ROJO, LOW);
+    digitalWrite(LED_SPI_AZUL, LOW);
+    digitalWrite(LED_I2C_AMARILLO, LOW);
     modoActual = m;
     ledBlinkTarget = blinks;
     ledBlinkCount = 0;
@@ -132,70 +149,84 @@ void actualizarLeds(Modo m, int blinks) {
     lastProtocolLedTime = millis();
 }
 
+// ****************************************************************************************
+//                                    SETUP PRINCIPAL          
+// ****************************************************************************************
 void setup() {
-    // Inicializa el puerto serial
+    // 1. INICIO SERIAL Y DIAGNÓSTICO (Para ver qué pasa desde el segundo 1)
     Serial.begin(115200);
+    delay(500); 
+    Serial.println("\n\n========================================");
+    Serial.println("[SISTEMA] >>> ESP32 Arrancando...");
+    Serial.println("========================================\n");
 
-    // Inicializa los pines de los LEDs
-    pinMode(LED_MODO_ROJO, OUTPUT);
-    pinMode(LED_MODO_AZUL, OUTPUT);
-    pinMode(LED_MODO_AMARILLO, OUTPUT);
+    // 2. CONFIGURACIÓN DE HARDWARE (Pines)
+    pinMode(LED_UART_ROJO, OUTPUT);
+    pinMode(LED_SPI_AZUL, OUTPUT);
+    pinMode(LED_I2C_AMARILLO, OUTPUT);
     pinMode(LED_BLE_BLANCO, OUTPUT);
-    pinMode(LED_ERROR_VERDE, OUTPUT);
+    pinMode(LED_STATUS_VERDE, OUTPUT);
     
-    // Inicialización explícita de pines SPI para MAX6675
-    pinMode(thermoCS, OUTPUT);
-    digitalWrite(thermoCS, HIGH); // Desactivar chip inicialmente
-    pinMode(thermoDO, INPUT);
+    pinMode(SPI_CS, OUTPUT);
+    digitalWrite(SPI_CS, HIGH);
+    pinMode(SPI_MISO, INPUT);
     
-    // Configuración PWM para Brillo TFT (Nueva API Core 3.0+)
-    ledcAttach(TFT_LED, 5000, 8); // Pin, Frecuencia 5kHz, Resolución 8 bits
-    ledcWrite(TFT_LED, 255);      // Brillo máximo inicial
+    ledcAttach(TFT_LED, 5000, 8);
+    ledcWrite(TFT_LED, 255);
 
-    // Inicializa los LEDs de control
     actualizarLeds(IDLE, 0);
     digitalWrite(LED_BLE_BLANCO, LOW);
-    digitalWrite(LED_ERROR_VERDE, LOW);
+    digitalWrite(LED_STATUS_VERDE, LOW);
 
-    // Inicializa el Bluetooth BLE
-    BLEDevice::init("SerialScope Pruebas Master");
+    // 3. INICIALIZACIÓN BLUETOOTH (Al final para mayor estabilidad)
+    Serial.println("[SISTEMA] >>> Activando Bluetooth...");
+    BLEDevice::init("SerialScope Master");
     pServer = BLEDevice::createServer();
     pServer->setCallbacks(new MyServerCallbacks());
     BLEService *pService = pServer->createService(SERVICE_UUID);
+    
     pTxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_TX, BLECharacteristic::PROPERTY_NOTIFY);
     pTxCharacteristic->addDescriptor(new BLE2902());
     BLECharacteristic *pRxCharacteristic = pService->createCharacteristic(CHARACTERISTIC_UUID_RX, BLECharacteristic::PROPERTY_WRITE);
     pRxCharacteristic->setCallbacks(new MyCallbacks());
+    
     pService->start();
-    pServer->getAdvertising()->start();
-    Serial.println("Sistema de Pruebas listo.");
-    delay(500); // Espera a que el sensor MAX6675 se estabilice
+    
+    // PUBLICIDAD: Importante para un handshake rápido y estable
+    BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
+    pAdvertising->addServiceUUID(SERVICE_UUID);
+    pAdvertising->setScanResponse(true);
+    pAdvertising->start();
+
+    Serial.println("[SISTEMA] >>> Maestro listo y visible.");
 }
 
-// Función para procesar las tareas recibidas por BLE
+// Función para procesar las tareas recibidas por BLE y hacer solicitured spam al sensor
 void processTasks() {
     if (modoActual == SPI_EMU) {
+        // MAX6675, hacer solicitured spam cada 1 segundo
         if (spiProfile == "MAX6675" && millis() - ultimaTarea > 1000) {
             float celsius = thermocouple.readCelsius();
             String res;
             if (isnan(celsius)) {
                 res = "Error: Sin Sensor";
-                digitalWrite(LED_ERROR_VERDE, HIGH);
+                digitalWrite(LED_STATUS_VERDE, HIGH);
             } else if (celsius == 0.00) {
                 res = "Aviso: Lectura 0.00 (Revisar Cables)";
-                digitalWrite(LED_ERROR_VERDE, HIGH);
+                digitalWrite(LED_STATUS_VERDE, HIGH);
             } else {
                 res = "Temperatura: " + String(celsius) + " C";
-                digitalWrite(LED_ERROR_VERDE, LOW);
+                digitalWrite(LED_STATUS_VERDE, LOW);
             }
-            Serial.println("[SPI] " + res);
+            Serial.println("[SPI] >>> " + res);
             bleSend("RESULTADO: " + res);
             ultimaTarea = millis();
         }
     } else if (modoActual == SPI_EMU && spiProfile == "TFT") {
-        // En modo TFT no hacemos spam de lectura, esperamos comandos EMU_MSG
+        // TFT no hacemos spam de lectura, esperamos comandos EMU_MSG
     } else if (modoActual == I2C_EMU) {
-        if (millis() - ultimaTarea > 2000) {
+        // BMP180, hacer solicitured spam cada 1 segundo
+        if (millis() - ultimaTarea > 1000) {
             String msg = "";
             
             if (i2cProfile == "BME") {
@@ -217,50 +248,57 @@ void processTasks() {
                     }
                 } else {
                     msg = "NACK: BMP180 no detectado en 0x" + String(i2cAddress, HEX);
-                    digitalWrite(LED_ERROR_VERDE, HIGH);
+                    digitalWrite(LED_STATUS_VERDE, HIGH);
                 }
             } else if (i2cProfile == "TMP") {
-                // Tráfico I2C Real para TMP102 con Filtro de Promedio debido a la sensibilidad de corriente  a pesar que s epuso capacitores (5 muestras)
-                int acumulado = 0;
-                int muestrasOk = 0;
-                
-                for (int i = 0; i < 5; i++) {
-                    Wire.beginTransmission(i2cAddress);
-                    Wire.write(0x00);
-                    if (Wire.endTransmission() == 0) {
-                        Wire.requestFrom((uint16_t)i2cAddress, (uint8_t)2);
-                        if (Wire.available() == 2) {
-                            uint8_t msb = Wire.read();
-                            uint8_t lsb = Wire.read();
-                            acumulado += ((msb << 8) | lsb) >> 4;
-                            muestrasOk++;
-                        }
+                // TMP102: Lectura de temperatura cada 1 segundo
+                Wire.beginTransmission(i2cAddress);
+                Wire.write(0x00);
+                if (Wire.endTransmission() == 0) {
+                    Wire.requestFrom((uint16_t)i2cAddress, (uint8_t)2);
+                    // Revisa la direccion I2C, si no es correcta no se puede leer el sensor
+                    if (Wire.available() == 2) {
+                        uint8_t msb = Wire.read();
+                        uint8_t lsb = Wire.read();
+                        int val = ((msb << 8) | lsb) >> 4;
+                        msg = "Lectura Digital TMP102 (0x" + String(i2cAddress, HEX) + "): " + String(val);
+                    } else {
+                        msg = "Error lectura TMP102 en 0x" + String(i2cAddress, HEX);
                     }
-                    delay(20); // Pequeña pausa entre muestras
-                }
-
-                if (muestrasOk > 0) {
-                    int val = acumulado / muestrasOk;
-                    msg = "Lectura Digital TMP102 (0x" + String(i2cAddress, HEX) + "): " + String(val);
                 } else {
                     msg = "NACK: TMP102 no detectado en 0x" + String(i2cAddress, HEX);
-                    digitalWrite(LED_ERROR_VERDE, HIGH);
+                    digitalWrite(LED_STATUS_VERDE, HIGH);
                 }
             }
-            
-            Serial.println("[I2C] " + msg);
+            Serial.println("[I2C] >>> " + msg);
             bleSend("RESULTADO: " + msg);
             ultimaTarea = millis();
         }
     }
 }
 
+// ****************************************************************************************
+//                                    MAIN LOOP          
+// ****************************************************************************************
 void loop() {
-    // Detectar desconexión de BLE y reiniciar advertising
-    if (!deviceConnected && oldDeviceConnected) { delay(500); pServer->startAdvertising(); oldDeviceConnected = deviceConnected; }
-    if (deviceConnected && !oldDeviceConnected) { oldDeviceConnected = deviceConnected; }
+    // 1. PROCESAR COMANDOS PENDIENTES
+    if (comandoPendiente != "") {
+        String cmd = comandoPendiente;
+        comandoPendiente = "";
+        ejecutarComando(cmd);
+    }
+
+    // 2. GESTIÓN DE CONEXIÓN BLE
+    if (!deviceConnected && oldDeviceConnected) { 
+        delay(500); 
+        pServer->startAdvertising(); 
+        oldDeviceConnected = deviceConnected; 
+    }
+    if (deviceConnected && !oldDeviceConnected) { 
+        oldDeviceConnected = deviceConnected; 
+    }
     
-    // Lógica del LED Blanco
+    // Lógica del LED Blanco (Indicador de Conexión BLE)
     if (!deviceConnected) {
         // Parpadea si no hay clientes BLE conectados
         if (millis() - lastBlinkTime > 500) {
@@ -269,26 +307,20 @@ void loop() {
             lastBlinkTime = millis();
         }
     } else {
-        // Si acaba de conectarse, se prende fijo por 2 segundos y luego se apaga
-        if (oldDeviceConnected && (millis() - lastBlinkTime > 2000)) {
-            digitalWrite(LED_BLE_BLANCO, LOW);
-        } else if (!oldDeviceConnected) {
-            // Recién conectado
-            digitalWrite(LED_BLE_BLANCO, HIGH);
-            lastBlinkTime = millis(); 
-        }
+        // Conexión activa: LED siempre encendido
+        digitalWrite(LED_BLE_BLANCO, HIGH);
     }
 
     // Apagar temporalmente el LED verde tras un PONG
     if (greenLedTurnOffTime > 0 && millis() > greenLedTurnOffTime) {
-        digitalWrite(LED_ERROR_VERDE, LOW);
+        digitalWrite(LED_STATUS_VERDE, LOW);
         greenLedTurnOffTime = 0;
     }
 
     // Lógica de parpadeo de LEDs de Protocolos
     if (modoActual != IDLE && ledBlinkTarget > 0) {
         unsigned long currentMillis = millis();
-        int activePin = (modoActual == UART_EMU) ? LED_MODO_ROJO : (modoActual == I2C_EMU ? LED_MODO_AZUL : LED_MODO_AMARILLO);
+        int activePin = (modoActual == UART_EMU) ? LED_UART_ROJO : (modoActual == I2C_EMU ? LED_I2C_AMARILLO : LED_SPI_AZUL);
         
         if (ledResting) {
             if (currentMillis - lastProtocolLedTime > 1500) {
@@ -324,24 +356,48 @@ void loop() {
         while(Serial2.available()) {
             uartIncoming += (char)Serial2.read();
         }
-        Serial.print("[UART RX Slave] "); Serial.print(uartIncoming);
+        Serial.println("[UART] >>> RX Slave: " + uartIncoming);
         bleSend("Recibido: " + uartIncoming);
     }
 
     delay(10);
 }
 
+// Función auxiliar para extraer parámetros de un comando (Formato: CMD:P1:P2:P3)
+// ****************************************************************************************
+//                                  FUNCIONES DE UTILIDAD          
+// ****************************************************************************************
+
+String getParam(String data, int index) {
+    int found = 0;
+    int strIndex[] = {0, -1};
+    int maxIndex = data.length() - 1;
+
+    for (int i = 0; i <= maxIndex && found <= index; i++) {
+        if (data.charAt(i) == ':' || i == maxIndex) {
+            found++;
+            strIndex[0] = strIndex[1] + 1;
+            strIndex[1] = (i == maxIndex) ? i + 1 : i;
+        }
+    }
+    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
+
+// ****************121************************************************************************
+//                                    INTERPRETE COMANDOS          
+// ****************************************************************************************
 void ejecutarComando(String cmd) {
-    // Verifica si el comando es PING
+    Serial.println("[BLE] >>> " + cmd);
+    
+    // 1. PING
     if (cmd == "PING") { 
-        Serial.println("[SISTEMA] >>> PING recibido... respondiendo PONG (LED Verde)"); 
         bleSend("PONG"); 
-        digitalWrite(LED_ERROR_VERDE, HIGH);
+        digitalWrite(LED_STATUS_VERDE, HIGH);
         greenLedTurnOffTime = millis() + 500;
         return; 
     }
     
-    // Verifica si el comando es EMU_STOP, si es asi detiene la emulacion (BOTON DE DETENER EN LA WEB)
+    // 2. EMU_STOP: Detener emulación
     if (cmd == "EMU_STOP") { 
         emulacionActiva = false;
         Serial.println("[SISTEMA] >>> Prueba detenida.");
@@ -349,82 +405,55 @@ void ejecutarComando(String cmd) {
         return; 
     }
 
+    // 3. EMU_CONFIG: Configurar parámetros de prueba
     if (cmd.startsWith("EMU_CONFIG:")) {
-        // Formatos:
-        // EMU_CONFIG:UART:AUTO:115200:GPS
-        // EMU_CONFIG:I2C:AUTO:0x08:100000:ACCEL
-        // EMU_CONFIG:SPI:AUTO:0:FLASH
-        String tokens[6];
-        int count = 0;
-        int startIndex = 0;
-        for (int i = 0; i <= cmd.length(); i++) {
-            if (cmd.charAt(i) == ':' || i == cmd.length()) {
-                tokens[count++] = cmd.substring(startIndex, i);
-                startIndex = i + 1;
-                if (count >= 6) break;
-            }
-        }
-        
-        String proto = tokens[1];
+        String proto = getParam(cmd, 1);
         modoActual = IDLE;
 
-        // Verifica si el protocolo es UART, si es asi configura el baudrate y el profile
         if (proto == "UART") {
-            long baud = tokens[3].toInt();
-            String profile = tokens[4];
-            int blinks = 1;
-            if (baud == 19200) blinks = 2;
-            else if (baud == 38400) blinks = 3;
-            else if (baud == 57600) blinks = 4;
-            else if (baud == 115200) blinks = 5;
+            long baud = getParam(cmd, 3).toInt();
+            String profile = getParam(cmd, 4);
+            int blinks = (baud >= 115200) ? 5 : 1;
 
             Serial2.end();
             Serial2.begin(baud, SERIAL_8N1, 16, 17);
             actualizarLeds(UART_EMU, blinks);
             contadorUART = 0;
-            digitalWrite(LED_ERROR_VERDE, LOW);
+            digitalWrite(LED_STATUS_VERDE, LOW);
 
-            Serial.print("[SISTEMA] >>> Configurando UART | Baud: "); Serial.print(baud);
-            Serial.print(" | Perfil: "); Serial.println(profile);
-
-            bleSend("EMU_OK");
+            Serial.println("[SISTEMA] >>> Configurando UART | Baud: " + String(baud) + " | Perfil: " + profile);
+            bleSend("READY:UART");
             bleSend("RESULTADO: Iniciando envio UART a " + String(baud) + " baud...");
 
-        // Verifica si el protocolo es I2C, si es asi configura la velocidad y el profile
         } else if (proto == "I2C") {
-            long speed = tokens[4].toInt();
-            int blinks = (speed == 400000) ? 2 : 1;
+            String addrStr = getParam(cmd, 3);
+            long speed = getParam(cmd, 4).toInt();
+            i2cProfile = getParam(cmd, 5);
             
-            String addrStr = tokens[3];
             addrStr.replace("0x", "");
             i2cAddress = strtol(addrStr.c_str(), NULL, 16);
-            if (i2cAddress == 0) i2cAddress = 0x77; // Fallback
+            if (i2cAddress == 0) i2cAddress = 0x77; 
             
-            i2cProfile = tokens[5];
+            int blinks = (speed == 400000) ? 2 : 1;
 
-            Wire.begin(); // Inicializar como maestro I2C
+            Wire.begin(); 
             Wire.setClock(speed);
-            
             actualizarLeds(I2C_EMU, blinks);
-            digitalWrite(LED_ERROR_VERDE, LOW);
+            digitalWrite(LED_STATUS_VERDE, LOW);
 
-            Serial.print("[SISTEMA] >>> Configurando I2C | Addr: 0x"); Serial.print(String(i2cAddress, HEX));
-            Serial.print(" | Speed: "); Serial.print(speed/1000); 
-            Serial.print("kHz | Perfil: "); Serial.println(i2cProfile);
-
-            bleSend("EMU_OK");
+            Serial.println("[SISTEMA] >>> Configurando I2C | Addr: 0x" + String(i2cAddress, HEX) + " | Speed: " + String(speed/1000) + "kHz | Perfil: " + i2cProfile);
+            bleSend("READY:I2C");
             bleSend("RESULTADO: Iniciando sondeo (" + i2cProfile + ") en 0x" + String(i2cAddress, HEX) + " a " + String(speed/1000) + " kHz...");
 
-        // Verifica si el protocolo es SPI, si es asi configura el modo y el profile
         } else if (proto == "SPI") {
-            int modeIdx = tokens[3].toInt();
-            spiProfile = tokens[4]; // Corregido: asignar a la variable global
+            int modeIdx = getParam(cmd, 3).toInt();
+            spiProfile = getParam(cmd, 4);
             int blinks = modeIdx + 1;
 
             actualizarLeds(SPI_EMU, blinks);
             
             if (spiProfile == "TFT") {
-                Serial.println("[SISTEMA] Inicializando Pantalla TFT...");
+                Serial.println("[SISTEMA] >>> Inicializando Pantalla TFT...");
                 tft.initR(INITR_BLACKTAB); 
                 tft.setRotation(1);
                 tft.fillScreen(ST7735_BLACK);
@@ -440,15 +469,14 @@ void ejecutarComando(String cmd) {
                 tft.println("Esperando texto...");
             }
 
-            Serial.print("[SISTEMA] >>> Configurando SPI | Modo: "); Serial.print(modeIdx);
-            Serial.print(" | Perfil: "); Serial.println(spiProfile);
-
-            bleSend("EMU_OK");
+            Serial.println("[SISTEMA] >>> Configurando SPI | Modo: " + String(modeIdx) + " | Perfil: " + spiProfile);
+            bleSend("READY:SPI");
             String resMsg = (spiProfile == "TFT") ? "Pantalla TFT Lista" : "Leyendo sensor MAX6675";
             bleSend("RESULTADO: " + resMsg + " en SPI Modo " + String(modeIdx) + "...");
         }
-        ultimaTarea = millis() - 2000; // Forzar ejecución inmediata
-        emulacionActiva = false; // No iniciar spam hasta recibir EMU_START
+        ultimaTarea = millis() - 2000;
+        emulacionActiva = false; 
+        return;
     } else if (cmd == "EMU_START") {
         emulacionActiva = true;
         Serial.println("[SISTEMA] >>> Reanudando prueba...");
@@ -462,7 +490,7 @@ void ejecutarComando(String cmd) {
         if (p == "UART" && modoActual == UART_EMU) {
             Serial2.print(data);
             bleSend("Enviado: " + data);
-            digitalWrite(LED_ERROR_VERDE, HIGH);
+            digitalWrite(LED_STATUS_VERDE, HIGH);
             greenLedTurnOffTime = millis() + 200;
         } else if (p == "I2C") {
             // Caso 1: Lectura de calibración (ya existente)
@@ -512,7 +540,7 @@ void ejecutarComando(String cmd) {
                 uint8_t error = Wire.endTransmission();
                 if (error == 0) {
                     bleSend("I2C_TX_OK");
-                    digitalWrite(LED_ERROR_VERDE, HIGH);
+                    digitalWrite(LED_STATUS_VERDE, HIGH);
                     greenLedTurnOffTime = millis() + 500;
                 } else {
                     bleSend("I2C_TX_ERR:" + String(error));
@@ -533,6 +561,10 @@ void ejecutarComando(String cmd) {
         }
     }
 }
+
+// ****************************************************************************************
+//                                    COMUNICACIÓN BLE          
+// ****************************************************************************************
 
 // Envía mensajes largos dividiéndolos en fragmentos compatibles con BLE (Max 20 caracteres)
 void bleSend(String texto) {

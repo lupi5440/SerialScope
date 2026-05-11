@@ -1,5 +1,118 @@
-import { bleEmulador, BLEProxy } from './ble_connection.js';
+/**
+ * LÓGICA DE CONEXIÓN BLE (Integrada)
+ */
+const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
+const BLE_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
+const BLE_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
 
+class BLEProxy {
+    constructor(role) {
+        this.role = role;
+        this.device = null;
+        this.server = null;
+        this.service = null;
+        this.rxCharacteristic = null;
+        this.txCharacteristic = null;
+        this.onConnect = null;
+        this.onDisconnect = null;
+        this.onDataReceived = null;
+        this.encoder = new TextEncoder();
+        this.decoder = new TextDecoder();
+        this.buffer = "";
+    }
+
+    async connect() {
+        if (!navigator.bluetooth) {
+            alert('La Web Bluetooth API no está soportada. Usa Chrome.');
+            return false;
+        }
+
+        try {
+            // El requestDevice SOLO puede llamarse tras un clic y no puede estar en un loop con delays
+            if (!this.device) {
+                this.device = await navigator.bluetooth.requestDevice({
+                    filters: [{ namePrefix: 'SerialScope' }],
+                    optionalServices: [BLE_SERVICE_UUID]
+                });
+                this.device.addEventListener('gattserverdisconnected', () => this.handleDisconnect());
+            }
+
+            let retries = 2;
+            while (retries > 0) {
+                if (!this.device) break; // Seguridad: Si el dispositivo se perdió, salir del loop
+
+                try {
+                    console.log(`[${this.role}] Intentando conectar al GATT...`);
+                    this.server = await this.device.gatt.connect();
+
+                    if (!this.server) throw new Error("No se pudo obtener el servidor GATT");
+
+                    console.log(`[${this.role}] GATT conectado, obteniendo servicios...`);
+                    // Pausa de seguridad para estabilizar la conexión BLE
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    if (!this.device || !this.device.gatt.connected) throw new Error("Conexión perdida durante handshake");
+
+                    this.service = await this.server.getPrimaryService(BLE_SERVICE_UUID);
+                    this.rxCharacteristic = await this.service.getCharacteristic(BLE_RX_UUID);
+                    this.txCharacteristic = await this.service.getCharacteristic(BLE_TX_UUID);
+
+                    await this.txCharacteristic.startNotifications();
+                    this.txCharacteristic.addEventListener('characteristicvaluechanged', (e) => this.handleNotifications(e));
+
+                    console.log(`[${this.role}] ¡Conexión completa!`);
+                    if (this.onConnect) this.onConnect();
+                    return true;
+                } catch (gattError) {
+                    console.warn(`[${this.role}] Error en handshake GATT:`, gattError);
+                    retries--;
+                    if (this.server) {
+                        try { await this.device.gatt.disconnect(); } catch (e) { }
+                    }
+                    if (retries > 0) await new Promise(resolve => setTimeout(resolve, 250));
+                    else throw gattError;
+                }
+            }
+        } catch (error) {
+            console.error(`[${this.role}] Error fatal:`, error);
+            if (error.name !== 'NotFoundError') {
+                alert(`Error de conexión: ${error.message}`);
+            }
+            return false;
+        }
+    }
+
+    handleDisconnect() {
+        this.device = null;
+        this.server = null;
+        if (this.onDisconnect) this.onDisconnect();
+    }
+
+    handleNotifications(event) {
+        const value = event.target.value;
+        const chunk = this.decoder.decode(value);
+        this.buffer += chunk;
+        let lines = this.buffer.split('\n');
+        this.buffer = lines.pop();
+        for (let line of lines) {
+            line = line.trim();
+            if (line.length > 0 && this.onDataReceived) this.onDataReceived(line);
+        }
+    }
+
+    async sendData(data) {
+        if (!this.rxCharacteristic) return;
+        try {
+            await this.rxCharacteristic.writeValue(this.encoder.encode(data + "\n"));
+        } catch (error) { console.error("Error envío:", error); }
+    }
+
+    async disconnect() {
+        if (this.device && this.device.gatt.connected) this.device.gatt.disconnect();
+    }
+}
+
+export const bleEmulador = new BLEProxy("Emulador");
 export const bleDestino = new BLEProxy('UART Dest');
 
 let bmpCalib = null;
@@ -67,8 +180,8 @@ export function conectarEmulador() {
             alert("¡PONG! Pruebas Master respondiendo correctamente.");
             return;
         }
-        if (data.includes("EMU_OK") || data.includes("TFT_OK")) {
-            // Al ser configurado, hardware reporta éxito. Cambiamos UI a Estado "Verde / Seguro"
+        if (data.startsWith("READY:")) {
+            // ¡Confirmado! El hardware terminó de remapear puertos.
             marcarEmuSincronizado();
             return;
         }
@@ -481,10 +594,14 @@ export function aplicarEmulacion() {
     }
 
     const applyBtn = document.getElementById('btn-aplicar-config-emu');
+    const initBtn = document.getElementById('btn-iniciar-emulacion');
     if (applyBtn) {
-        // Bloqueo temporal para evitar Flooding masivo de peticiones si se cliquea rápido.
         applyBtn.disabled = true;
         applyBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sincronizando...';
+    }
+    if (initBtn) {
+        initBtn.disabled = true;
+        initBtn.classList.add('opacity-50');
     }
 
     console.log("Enviando configuración al Emulador:", cmd);
@@ -569,11 +686,14 @@ export function marcarEmuSincronizado() {
         badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i> Sincronizado';
     }
     if (warning) warning.style.display = 'none';
-    if (initBtn) initBtn.disabled = false;
+    if (initBtn) {
+        initBtn.disabled = false;
+        initBtn.classList.remove('opacity-50');
+    }
     if (manualBtn) manualBtn.disabled = false;
     if (applyBtn) {
-        applyBtn.disabled = true;
-        applyBtn.innerHTML = '<i class="bi bi-check-all"></i> Aplicado';
+        applyBtn.disabled = false;
+        applyBtn.innerHTML = '<i class="bi bi-cpu"></i> Aplicar al Hardware';
     }
 }
 

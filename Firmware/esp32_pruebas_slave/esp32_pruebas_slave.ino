@@ -2,7 +2,6 @@
  * =====================================================================================
  *  PROYECTO : SerialScope — Módulo de Pruebas (Slave)
  *  ARCHIVO  : esp32_pruebas_slave.ino
- *  AUTOR    : Juan Angel Serrano Carreño
  * =====================================================================================
  *
  *  DESCRIPCIÓN:
@@ -31,10 +30,10 @@ BLECharacteristic *pTxCharacteristic = NULL;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 
-// LEDs
-#define LED_MODO_ROJO 13
-#define LED_BLE_BLANCO 2
-#define LED_ERROR_VERDE 15
+// LEDs de control 
+#define LED_STATUS_VERDE  13  
+#define LED_BLE_BLANCO    4   
+#define LED_UART_ROJO     14  
 
 // Variables LEDs
 unsigned long lastBlinkTime = 0;
@@ -99,7 +98,7 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 
             // Comando PING para prueba de enlace
             else if (rxValue == "PING") {
-                digitalWrite(LED_ERROR_VERDE, HIGH);
+                digitalWrite(LED_STATUS_VERDE, HIGH);
                 greenLedTurnOffTime = millis() + 500;
                 String response = "PONG_DESTINO\n";
                 if(deviceConnected) {
@@ -124,12 +123,13 @@ void setup() {
     Serial2.begin(115200, SERIAL_8N1, 16, 17);
     actualizarBlinks(115200);
     
-    pinMode(LED_MODO_ROJO, OUTPUT);
+    pinMode(LED_UART_ROJO, OUTPUT);
     pinMode(LED_BLE_BLANCO, OUTPUT);
-    pinMode(LED_ERROR_VERDE, OUTPUT);
-    digitalWrite(LED_MODO_ROJO, LOW);
+    pinMode(LED_STATUS_VERDE, OUTPUT);
+    
+    digitalWrite(LED_UART_ROJO, LOW);
     digitalWrite(LED_BLE_BLANCO, LOW);
-    digitalWrite(LED_ERROR_VERDE, LOW);
+    digitalWrite(LED_STATUS_VERDE, LOW);
 
     //Inicialización del dispositivo BLE
     BLEDevice::init("SerialScope Pruebas Slave");
@@ -172,7 +172,7 @@ void loop() {
 
     //Lógica LED Verde (PING)
     if (greenLedTurnOffTime > 0 && millis() > greenLedTurnOffTime) {
-        digitalWrite(LED_ERROR_VERDE, LOW);
+        digitalWrite(LED_STATUS_VERDE, LOW);
         greenLedTurnOffTime = 0;
     }
 
@@ -189,19 +189,19 @@ void loop() {
             if (currentMillis - lastProtocolLedTime > 200) {
                 lastProtocolLedTime = currentMillis;
                 ledBlinkState = !ledBlinkState;
-                digitalWrite(LED_MODO_ROJO, ledBlinkState ? HIGH : LOW);
+                digitalWrite(LED_UART_ROJO, ledBlinkState ? HIGH : LOW);
                 
                 if (!ledBlinkState) {
                     ledBlinkCount++;
                     if (ledBlinkCount >= ledBlinkTarget) {
                         ledResting = true;
-                        digitalWrite(LED_MODO_ROJO, LOW);
+                        digitalWrite(LED_UART_ROJO, LOW);
                     }
                 }
             }
         }
     } else if (!deviceConnected) {
-        digitalWrite(LED_MODO_ROJO, LOW);
+        digitalWrite(LED_UART_ROJO, LOW);
     }
 
     // PUENTE UART -> BLE (Con cortador de mensajes largos para evitar errores por saturación de memoria)
