@@ -359,13 +359,19 @@ void loop() {
     // --- SNIFFING SPI (Procesamiento de Buffer Circular) ---
     // Si el índice de lectura es distinto al de escritura, significa que hay datos nuevos
     if (spiReadIdx != spiWriteIdx) {
+        lastSpiTime = millis();  // Actualizar tiempo de actividad 
+
         String data = "SPI_RECV_BUF:";
-        while (spiReadIdx != spiWriteIdx) {
-            // Enviamos los datos en pares (MOSI, MISO) para que la interfaz los grafique correctamente
-            data += String(spiRawBuffer[spiReadIdx], HEX) + ",";
+        data.reserve(460); // Reservar RAM exacta de golpe (150 bytes * 3 caracteres + 13 del título)
+        
+        char hexTemp[4]; 
+        int maxBytesPerLoop = 0;
+        
+        while (spiReadIdx != spiWriteIdx && maxBytesPerLoop < 150) { 
+            sprintf(hexTemp, "%02X,", spiRawBuffer[spiReadIdx]); 
+            data += hexTemp;
             spiReadIdx = (spiReadIdx + 1) % SPI_BUFFER_SIZE;
-            // Limitamos el paquete pero aseguramos que termine en un par (índice par)
-            if (data.length() > 150 && (spiReadIdx % 2 == 0)) break; 
+            maxBytesPerLoop++;
         }
         wsSend(data);
     }
@@ -384,12 +390,20 @@ void loop() {
     }
 
     // --- SNIFFING I2C (Procesamiento de Buffer) ---
-    // Extraemos los datos capturados por las interrupciones
     if (i2cReadIdx != i2cWriteIdx && (millis() - lastI2cTime > 10)) {
+        lastI2cTime = millis();  
+        
         String data = "I2C_RECV_BUF:";
-        while (i2cReadIdx != i2cWriteIdx) {
-            data += String(i2cRawBuffer[i2cReadIdx], HEX) + ",";
+        data.reserve(460); // Reservar memoria para evitar OOM
+        
+        char hexTemp[4];
+        int maxBytesPerLoop = 0;
+        
+        while (i2cReadIdx != i2cWriteIdx && maxBytesPerLoop < 150) { 
+            sprintf(hexTemp, "%02X,", i2cRawBuffer[i2cReadIdx]);
+            data += hexTemp;
             i2cReadIdx = (i2cReadIdx + 1) % I2C_BUFFER_SIZE;
+            maxBytesPerLoop++;
         }
         wsSend(data);
     }
@@ -465,24 +479,10 @@ void actualizarLedsProtocolo(String proto, int blinks) {
     } 
 }
 
-// Enviar texto al WebSocket de forma segura (Thread-safe y control de saturación)
+// Enviar texto al WebSocket (protege contra saturación)
 void wsSend(String texto) {
     if (ws.count() > 0) {
-        // Iterar sobre todos los clientes conectados
-        for(const auto& c : ws.getClients()) {
-            AsyncWebSocketClient *client = c.second;
-        
-            // Solo enviar si el cliente está conectado y su cola de red NO está llena
-            if(client != nullptr && client->status() == WS_CONNECTED) {
-                if (!client->queueIsFull()) {
-                    client->text(texto);
-                } else {
-                    Serial.println("[Aviso] >>> Cola WS llena, descartando paquete visual para evitar Crash.");
-                    digitalWrite(LED_STATUS_VERDE, HIGH);
-                    greenLedTurnOffTime = millis() + 100; // El loop() lo apagará tras 100ms
-                }
-            }
-        }
+        ws.textAll(texto);
     }
 }
 
@@ -790,7 +790,6 @@ void startSniffingI2C() {
      else if (i2cBitCount == 9) {
          i2cBitCount = 0; 
          i2cCurrentByte = 0;
-         lastI2cTime = millis(); // Actualizar tiempo de actividad
      }
  }
 
@@ -832,7 +831,6 @@ void startSniffingI2C() {
              spiBitCnt = 0;
              spiByterx = 0;
              spiBytetx = 0;
-             lastSpiTime = millis();
          }
      } else {
          spiBitCnt = 0; 
