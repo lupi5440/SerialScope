@@ -294,13 +294,13 @@ void loop() {
         greenLedTurnOffTime = 0;
     }
 
-    // Lógica de apagado de LEDs de estado (Eliminados flickers de actividad)
+    // Lógica de apagado de LED de estado
     if (greenLedTurnOffTime > 0 && millis() > greenLedTurnOffTime) {
         digitalWrite(LED_STATUS_VERDE, LOW);
         greenLedTurnOffTime = 0;
     }
 
-    // --- LÓGICA DE PARPADEO FRECUENCIA SPI (PIN 4) ---
+    // Logica de parpadeo de LED de frecuencia (PIN 4) 
     if (freqBlinkTarget > 0) {
         unsigned long currentMillis = millis();
         if (freqResting) {
@@ -325,7 +325,7 @@ void loop() {
         }
     }
 
-    // Lógica de parpadeo de LEDs 
+    // Lógica de parpadeo de LEDs de protocolos
     if (ledBlinkTarget > 0) {
         int targetLed = LED_UART_ROJO; 
         if (currentProtocol == "I2C") targetLed = LED_I2C_AMARILLO;
@@ -356,87 +356,90 @@ void loop() {
         }
     }
     
-    // --- SNIFFING SPI (Procesamiento de Buffer Circular) ---
-    // Si el índice de lectura es distinto al de escritura, significa que hay datos nuevos
-    if (spiReadIdx != spiWriteIdx) {
-        lastSpiTime = millis();  // Actualizar tiempo de actividad 
-
-        String data = "SPI_RECV_BUF:";
-        data.reserve(460); // Reservar RAM exacta de golpe (150 bytes * 3 caracteres + 13 del título)
-        
-        char hexTemp[4]; 
-        int maxBytesPerLoop = 0;
-        
-        while (spiReadIdx != spiWriteIdx && maxBytesPerLoop < 150) { 
-            sprintf(hexTemp, "%02X,", spiRawBuffer[spiReadIdx]); 
-            data += hexTemp;
-            spiReadIdx = (spiReadIdx + 1) % SPI_BUFFER_SIZE;
-            maxBytesPerLoop++;
+    //Lectura continua del hardware (Solo para el protocolo activo)
+    if (currentProtocol == "UART") {
+        // --- PROXY TRANSPARENTE UART ---
+        while (Serial1.available() && idxM2S < UART_BUF_SIZE) {
+            uint8_t c = Serial1.read();
+            Serial2.write(c); 
+            rawBufferM2S[idxM2S++] = c;
         }
-        wsSend(data);
-    }
 
-    // --- PROXY TRANSPARENTE UART ---
-    while (Serial1.available() && idxM2S < UART_BUF_SIZE) {
-        uint8_t c = Serial1.read();
-        Serial2.write(c); 
-        rawBufferM2S[idxM2S++] = c; // Guardar el byte crudo (sin crear Strings)
-    }
-
-    while (Serial2.available() && idxS2M < UART_BUF_SIZE) {
-        uint8_t c = Serial2.read();
-        Serial1.write(c); 
-        rawBufferS2M[idxS2M++] = c; // Guardar el byte crudo
-    }
-
-    // --- SNIFFING I2C (Procesamiento de Buffer) ---
-    if (i2cReadIdx != i2cWriteIdx && (millis() - lastI2cTime > 10)) {
-        lastI2cTime = millis();  
-        
-        String data = "I2C_RECV_BUF:";
-        data.reserve(460); // Reservar memoria para evitar OOM
-        
-        char hexTemp[4];
-        int maxBytesPerLoop = 0;
-        
-        while (i2cReadIdx != i2cWriteIdx && maxBytesPerLoop < 150) { 
-            sprintf(hexTemp, "%02X,", i2cRawBuffer[i2cReadIdx]);
-            data += hexTemp;
-            i2cReadIdx = (i2cReadIdx + 1) % I2C_BUFFER_SIZE;
-            maxBytesPerLoop++;
+        while (Serial2.available() && idxS2M < UART_BUF_SIZE) {
+            uint8_t c = Serial2.read();
+            Serial1.write(c); 
+            rawBufferS2M[idxS2M++] = c;
         }
-        wsSend(data);
     }
+    // Nota: SPI e I2C no necesitan lectura en el loop porque se leen en las interrupciones.
 
-   // Flush de Buffers UART 
+
+    // Empaquetado y envío por WiFi (Protegido a max. 50 paquetes por segundo)
     if (millis() - lastFlushTime > FLUSH_INTERVAL) {
-        
-        char hexTemp[4]; // Búfer temporal para convertir 1 byte a hex "FF,"
-
-        if (idxM2S > 0) {
-            String payload = "UART_RECV_BUF:M2S:";
-            payload.reserve(25 + idxM2S * 3); // Reservar memoria exacta 
-            for (int i = 0; i < idxM2S; i++) {
-                sprintf(hexTemp, "%02X,", rawBufferM2S[i]); // Convertir directo a char
-                payload += hexTemp;
+        if (currentProtocol == "SPI") {
+            if (spiReadIdx != spiWriteIdx) {
+                lastSpiTime = millis();  
+                String data = "SPI_RECV_BUF:";
+                data.reserve(460); 
+                char hexTemp[4]; 
+                int maxBytesPerLoop = 0;
+                
+                while (spiReadIdx != spiWriteIdx && maxBytesPerLoop < 150) { 
+                    sprintf(hexTemp, "%02X,", spiRawBuffer[spiReadIdx]); 
+                    data += hexTemp;
+                    spiReadIdx = (spiReadIdx + 1) % SPI_BUFFER_SIZE;
+                    maxBytesPerLoop++;
+                }
+                wsSend(data);
             }
-            wsSend(payload);
-            idxM2S = 0; // Reiniciar contador
-        }
-
-        if (idxS2M > 0) {
-            String payload = "UART_RECV_BUF:S2M:";
-            payload.reserve(25 + idxS2M * 3);
-            for (int i = 0; i < idxS2M; i++) {
-                sprintf(hexTemp, "%02X,", rawBufferS2M[i]);
-                payload += hexTemp;
-            }
-            wsSend(payload);
-            idxS2M = 0; // Reiniciar contador
         }
         
-        lastFlushTime = millis();
+        else if (currentProtocol == "I2C") {
+            if (i2cReadIdx != i2cWriteIdx && (millis() - lastI2cTime > 10)) {
+                lastI2cTime = millis();  
+                String data = "I2C_RECV_BUF:";
+                data.reserve(460); 
+                char hexTemp[4];
+                int maxBytesPerLoop = 0;
+                
+                while (i2cReadIdx != i2cWriteIdx && maxBytesPerLoop < 150) { 
+                    sprintf(hexTemp, "%02X,", i2cRawBuffer[i2cReadIdx]);
+                    data += hexTemp;
+                    i2cReadIdx = (i2cReadIdx + 1) % I2C_BUFFER_SIZE;
+                    maxBytesPerLoop++;
+                }
+                wsSend(data);
+            }
+        }
+        
+        else if (currentProtocol == "UART") {
+            char hexTemp[4]; 
+            if (idxM2S > 0) {
+                String payload = "UART_RECV_BUF:M2S:";
+                payload.reserve(25 + idxM2S * 3); 
+                for (int i = 0; i < idxM2S; i++) {
+                    sprintf(hexTemp, "%02X,", rawBufferM2S[i]); 
+                    payload += hexTemp;
+                }
+                wsSend(payload);
+                idxM2S = 0; 
+            }
+
+            if (idxS2M > 0) {
+                String payload = "UART_RECV_BUF:S2M:";
+                payload.reserve(25 + idxS2M * 3);
+                for (int i = 0; i < idxS2M; i++) {
+                    sprintf(hexTemp, "%02X,", rawBufferS2M[i]);
+                    payload += hexTemp;
+                }
+                wsSend(payload);
+                idxS2M = 0; 
+            }
+        }
+        
+        lastFlushTime = millis(); // Reiniciar el temporizador de envíos
     }
+
 }
 
 
@@ -739,12 +742,11 @@ void ejecutarComando(String cmd) {
         }
         digitalWrite(5, HIGH);
         SPI.end();
-        pinMode(18, INPUT);
+        pinMode(18, INPUT_PULLUP); //Pull up para evitar que funcione como antena y capte ruido que dispara la interrupción de forma aleatoria.
         attachInterrupt(digitalPinToInterrupt(18), onSCKRising, RISING);
         wsSend("SPI_TX_OK");
     }
 }
-
 
 //***************         I2C       **************************** */
 
