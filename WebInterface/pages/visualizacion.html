@@ -10,6 +10,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script type="module" src="/src/main.js"></script>
     <script type="module" src="/src/visualizacion.js"></script>
+
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 
 <body>
@@ -40,7 +44,7 @@
                         SPI) y configura sus parámetros.</li>
                     <li class="mb-2"><strong class="text-purple">Paso 3:</strong> Pulsa <b>Aplicar al Hardware</b> para
                         activar la escucha pasiva en el bus.</li>
-                    <li><strong class="text-purple">Note:</strong>
+                    <li><strong class="text-purple">Nota:</strong>
                         <b>I²C y SPI</b> funcionan en modo <b>Sniffing pasivo</b> (solo escucha).
                         <b>UART</b> funciona en modo <b>Proxy transparente</b> (reenvía entre ambos lados del
                         canal).
@@ -57,17 +61,18 @@
                 </h2>
                 <hr class="border-purple">
                 <ul class="mb-0 text-dark">
-                    <li class="mb-2">⚪ <strong class="text-dark">Blanco (Estado Wi-Fi):</strong> Parpadea cuando no hay
-                        clientes conectados. Se queda fijo al vincular y luego se apaga para ahorrar energía. (GPIO 2)
-                    </li>
+                    <li class="mb-2">⚪ <strong class="text-dark"> Blanco (Estado Wi-Fi):</strong> Parpadea cuando no hay
+                        clientes conectados. Se queda fijo al vincular. </li>
+                    <li class="mb-2">🟢 <strong class="text-success">Verde (Éxito, Error):</strong> Destella al recibir
+                        un PING o se queda prendido cuando se marca un error en el protocolo. </li>
                     <li class="mb-2">🔴 <strong class="text-danger">Rojo (UART):</strong> Indica actividad en el puente
-                        UART. (GPIO 13)</li>
+                        UART. </li>
                     <li class="mb-2">🟡 <strong class="text-warning">Amarillo (I2C):</strong> Indica actividad en el bus
-                        I2C. (GPIO 12)</li>
+                        I2C. </li>
                     <li class="mb-2">🔵 <strong class="text-primary">Azul (SPI):</strong> Indica actividad en el bus
-                        SPI. (GPIO 14)</li>
-                    <li>🟢 <strong class="text-success">Verde (Éxito):</strong> Destella al recibir un PING o comando
-                        correcto. (GPIO 15)</li>
+                        SPI. </li>
+                    <li class="mb-2">🔵 <strong class="text-primary">Azul (Frecuencia de SPI):</strong> Indica la
+                        frecuencia del reloj en SPI cuando esta en modo activo. </li>
                 </ul>
             </div>
         </section>
@@ -122,7 +127,7 @@
             <div class="p-4 bg-light rounded-4 shadow-lg border-start border-purple"
                 style="border-left-width: 5px !important;">
                 <h5 class="text-purple fw-bold mb-3"><i class="bi bi-cpu"></i> Configuración del Protocolo</h5>
-                <select id="protocoloSelect" class="form-select mb-3 border-2"
+                <select id="protocoloSelect" class="form-select mb-3 border-2" disabled
                     onchange="actualizarConfiguracion(this.id); marcarProxyDesincronizado()">
                     <optgroup label="UART / UART">
                         <option value="UART">UART (Proxy Transparente)</option>
@@ -144,7 +149,7 @@
                 </div>
 
                 <div class="mt-4 d-flex align-items-center gap-3">
-                    <button id="btn-aplicar-config-proxy" class="btn btn-purple flex-grow-1 fw-bold shadow-sm"
+                    <button id="btn-aplicar-config-proxy" class="btn btn-purple flex-grow-1 fw-bold shadow-sm" disabled
                         onclick="enviarConfiguracionFisica()">
                         <i class="bi bi-check2-circle"></i> Aplicar al Hardware
                     </button>
@@ -236,7 +241,7 @@
                 <!-- Canal 2 -->
                 <div id="container-ch2" class="col-12">
                     <h6 class="text-uppercase fw-bold text-muted mb-2 text-start">
-                        <span id="badge-ch2" class="badge bg-danger">CANAL 2 (Slave Side)</span>
+                        <span id="badge-ch2" class="badge bg-danger">CANAL 2 </span>
                     </h6>
                     <div class="oscilloscope-container p-2 bg-white rounded border position-relative"
                         style="height: 180px;">
@@ -297,24 +302,28 @@
             <h6 class="text-muted fw-bold mb-3"><i class="bi bi-lightbulb-fill"></i> LEDs Indicadores</h6>
             <div class="row g-3 mb-4">
                 <div class="col-6 col-md-4 col-lg text-center">
-                    <span class="badge bg-danger px-3 py-2 mb-1 d-block">GPIO 13 🔴</span>
-                    <small class="text-muted">Actividad UART</small>
-                </div>
-                <div class="col-6 col-md-4 col-lg text-center">
-                    <span class="badge bg-warning text-dark px-3 py-2 mb-1 d-block">GPIO 12 🟡</span>
-                    <small class="text-muted">Actividad I2C</small>
-                </div>
-                <div class="col-6 col-md-4 col-lg text-center">
-                    <span class="badge bg-primary px-3 py-2 mb-1 d-block">GPIO 14 🔵</span>
-                    <small class="text-muted">Actividad SPI</small>
-                </div>
-                <div class="col-6 col-md-4 col-lg text-center">
-                    <span class="badge bg-light text-dark border px-3 py-2 mb-1 d-block">GPIO 2 ⚪</span>
+                    <span class="badge bg-light text-dark border px-3 py-2 mb-1 d-block">GPIO 4 ⚪</span>
                     <small class="text-muted">Estado WiFi</small>
                 </div>
                 <div class="col-6 col-md-4 col-lg text-center">
-                    <span class="badge bg-success px-3 py-2 mb-1 d-block">GPIO 15 🟢</span>
-                    <small class="text-muted">Éxito / PING</small>
+                    <span class="badge bg-success px-3 py-2 mb-1 d-block">GPIO 13 🟢</span>
+                    <small class="text-muted">Error / PING</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-danger px-3 py-2 mb-1 d-block">GPIO 14 🔴</span>
+                    <small class="text-muted">Actividad UART</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-warning text-dark px-3 py-2 mb-1 d-block">GPIO 27 🟡</span>
+                    <small class="text-muted">Modo I2C </small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-primary px-3 py-2 mb-1 d-block">GPIO 26 🔵</span>
+                    <small class="text-muted">Actividad SPI</small>
+                </div>
+                <div class="col-6 col-md-4 col-lg text-center">
+                    <span class="badge bg-primary px-3 py-2 mb-1 d-block">GPIO 25🔵</span>
+                    <small class="text-muted">Frecuencia SPI</small>
                 </div>
             </div>
 
@@ -329,18 +338,18 @@
                         <h6 class="fw-bold text-danger mb-1"><i class="bi bi-serial-port"></i> UART</h6>
                         <span class="badge bg-danger text-white mb-3">Proxy Transparente</span>
                         <div class="mb-2">
-                            <span class="small fw-bold d-block mb-1 text-muted">Canal 1 — Lado Maestro</span>
-                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>RX:</small>
-                                16 🟣</span>
-                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>TX:</small>
-                                17 🟤</span>
-                        </div>
-                        <div class="border-top pt-2 mt-2">
-                            <span class="small fw-bold d-block mb-1 text-muted">Canal 2 — Lado Esclavo</span>
+                            <span class="small fw-bold d-block mb-1 text-muted">Canal 1</span>
                             <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>RX:</small>
                                 33 🟣</span>
                             <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>TX:</small>
                                 32 🟤</span>
+                        </div>
+                        <div class="border-top pt-2 mt-2">
+                            <span class="small fw-bold d-block mb-1 text-muted">Canal 2</span>
+                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>RX:</small>
+                                16 🟣</span>
+                            <span class="badge border border-secondary text-dark bg-white px-2 py-1"><small>TX:</small>
+                                17 🟤</span>
                         </div>
                         <p class="mt-3 small text-muted">El ESP32 actúa como puente. Cruza RX de un lado con TX del
                             otro.</p>
@@ -384,7 +393,7 @@
                                     class="badge border border-secondary text-dark bg-white px-2 py-1"><small>CS:</small>
                                     5 🟠</span>
                             </div>
-                            <p class="mt-3 small text-muted">Conexión pasiva: Pines 18, 19, 23 y 5.</p>
+                            <p class="mt-3 small text-muted">Conexión en paralelo: Pines 18, 19, 23 y 5.</p>
                         </div>
                     </div>
                 </div>
@@ -392,7 +401,7 @@
 
             <div class="mt-4 text-center border-top pt-3">
                 <p class="mb-1 text-danger fw-bold small">
-                    <i class="bi bi-exclamation-triangle-fill"></i> REGLA DE ORO: GND común entre todos los dispositivos
+                    <i class="bi bi-exclamation-triangle-fill"></i> GND común entre todos los dispositivos
                     del bus.
                 </p>
                 <p class="mb-0 text-muted" style="font-size: 0.7rem;">

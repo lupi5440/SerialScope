@@ -33,6 +33,8 @@
 #include <ESPAsyncWebServer.h>
 #include <Wire.h>
 #include <SPI.h>
+#include "soc/soc.h"           // Librería para control de registros
+#include "soc/rtc_cntl_reg.h"  // Librería para control de Brownout
 
 // --- CONFIGURACIÓN DE RED ---
 const char* ssid = "SerialScope_Visualizador";
@@ -456,9 +458,8 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
     if (type == WS_EVT_CONNECT) {
         Serial.printf("[WiFi] >>> Cliente conectado a WebSockets (ID: %u)\n", client->id());
         client->text("Conectado al Visualizador SerialScope");
-        // Al conectar: encender LED blanco y programar su apagado (5 seg)
+        // Al conectar: encender LED blanco y mantenerlo fijo
         digitalWrite(LED_WIFI_BLANCO, HIGH);
-        whiteLedOffTime = millis() + 5000;
     } else if (type == WS_EVT_DISCONNECT) {
         Serial.printf(">> [WiFi] Cliente desconectado (ID: %u)\n", client->id());
         actualizarLedsProtocolo("", 0); // Apagar todo cuando se vaya el cliente
@@ -538,8 +539,14 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 // ****************************************************************************************
 
 void setup() {
-    //  Inicialización de comunicación serial para serial monitor del IDE Arduino
+    
+    // Inicialización de comunicación serial
     Serial.begin(115200);
+    
+    // DESACTIVAR BROWNOUT DETECTOR (Para evitar reinicios por caídas leves de voltaje)
+    WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); 
+    
+    delay(2000); // Esperar a que el voltaje se estabilice tras el encendido
 
     // Configuración de Pines Seriales 
     Serial1.begin(115200, SERIAL_8N1, 16, 17); // RX: 16, TX: 17 (Nativo UART2)
@@ -604,25 +611,16 @@ void loop() {
     
     if (estaConfigurando) return;
 
-    // Lógica del LED Blanco: Parpadea si no hay clientes. 
-    // Si hay clientes, se queda encendido 1 segundo y luego se apaga.
+    // Lógica del LED Blanco: Parpadea si no hay clientes, fijo si hay conexión.
     if (ws.count() == 0) {
         if (millis() - lastBlinkTime > 1000) {
             blinkState = !blinkState;
             digitalWrite(LED_WIFI_BLANCO, blinkState ? HIGH : LOW);
             lastBlinkTime = millis();
         }
-        whiteLedOffTime = 0; // Reiniciar para la próxima conexión
     } else {
-        // Hay clientes conectados
-        if (whiteLedOffTime > 0) {
-            if (millis() >= whiteLedOffTime) {
-                digitalWrite(LED_WIFI_BLANCO, LOW); // Apagar tras el tiempo
-                whiteLedOffTime = 0; 
-            } else {
-                digitalWrite(LED_WIFI_BLANCO, HIGH); // Mantener encendido indicando que no hay clientes
-            }
-        }
+        // Hay clientes conectados: LED Blanco Fijo
+        digitalWrite(LED_WIFI_BLANCO, HIGH);
     }
 
     // Apagar temporalmente el LED verde tras un PONG
@@ -631,16 +629,10 @@ void loop() {
         greenLedTurnOffTime = 0;
     }
 
-    // Apagar temporalmente el LED rojo tras un comando de reinicio
-    if (redLedOffTime > 0 && millis() > redLedOffTime) {
-        digitalWrite(LED_UART_ROJO, LOW);
-        redLedOffTime = 0;
-    }
-
-    // Apagar temporalmente el LED azul tras un comando de reinicio
-    if (blueLedOffTime > 0 && millis() > blueLedOffTime) {
-        digitalWrite(LED_SPI_AZUL, LOW);
-        blueLedOffTime = 0;
+    // Lógica de apagado de LEDs de estado (Eliminados flickers de actividad)
+    if (greenLedTurnOffTime > 0 && millis() > greenLedTurnOffTime) {
+        digitalWrite(LED_STATUS_VERDE, LOW);
+        greenLedTurnOffTime = 0;
     }
 
     // --- LÓGICA DE PARPADEO FRECUENCIA SPI (PIN 4) ---
@@ -711,10 +703,6 @@ void loop() {
             if (data.length() > 150 && (spiReadIdx % 2 == 0)) break; 
         }
         wsSend(data);
-        
-        // Efecto visual de actividad SPI
-        digitalWrite(LED_SPI_AZUL, HIGH);
-        blueLedOffTime = millis() + 20;
     }
 
     if (estaConfigurando) return;
@@ -750,12 +738,10 @@ void loop() {
     // Flush de Buffers UART 
     if (millis() - lastFlushTime > FLUSH_INTERVAL) {
         if (bufferM2S.length() > 0) {
-            Serial.println("[WiFi] >> Enviando Buffer CH1 -> CH2");
             wsSend("UART_RECV_BUF:M2S:" + bufferM2S);
             bufferM2S = "";
         }
         if (bufferS2M.length() > 0) {
-            Serial.println("[WiFi] >> Enviando Buffer CH2 -> CH1");
             wsSend("UART_RECV_BUF:S2M:" + bufferS2M);
             bufferS2M = "";
         }

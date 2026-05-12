@@ -27,7 +27,6 @@ class BLEProxy {
         }
 
         try {
-            // El requestDevice SOLO puede llamarse tras un clic y no puede estar en un loop con delays
             if (!this.device) {
                 this.device = await navigator.bluetooth.requestDevice({
                     filters: [{ namePrefix: 'SerialScope' }],
@@ -38,46 +37,36 @@ class BLEProxy {
 
             let retries = 2;
             while (retries > 0) {
-                if (!this.device) break; // Seguridad: Si el dispositivo se perdió, salir del loop
+                if (!this.device) break;
 
                 try {
-                    console.log(`[${this.role}] Intentando conectar al GATT...`);
+                    console.log(`[${this.role}] Conectando...`);
                     this.server = await this.device.gatt.connect();
-
-                    if (!this.server) throw new Error("No se pudo obtener el servidor GATT");
-
-                    console.log(`[${this.role}] GATT conectado, obteniendo servicios...`);
-
-                    // Pausa de seguridad para estabilizar la conexión BLE
+                    
                     await new Promise(resolve => setTimeout(resolve, 500));
-
-                    if (!this.device || !this.device.gatt.connected) throw new Error("Conexión perdida durante handshake");
 
                     this.service = await this.server.getPrimaryService(BLE_SERVICE_UUID);
                     this.rxCharacteristic = await this.service.getCharacteristic(BLE_RX_UUID);
                     this.txCharacteristic = await this.service.getCharacteristic(BLE_TX_UUID);
 
                     await this.txCharacteristic.startNotifications();
-                    this.txCharacteristic.addEventListener('characteristicvaluechanged', (e) => this.handleNotifications(e));
+                    
+                    // Limpiar listeners previos para no duplicar mensajes
+                    this.txCharacteristic.removeEventListener('characteristicvaluechanged', this._boundHandleNotifications);
+                    this._boundHandleNotifications = (e) => this.handleNotifications(e);
+                    this.txCharacteristic.addEventListener('characteristicvaluechanged', this._boundHandleNotifications);
 
-                    console.log(`[${this.role}] ¡Conexión completa!`);
+                    console.log(`[${this.role}] Conectado.`);
                     if (this.onConnect) this.onConnect();
                     return true;
                 } catch (gattError) {
-                    console.warn(`[${this.role}] Error en handshake GATT:`, gattError);
                     retries--;
-                    if (this.server) {
-                        try { await this.device.gatt.disconnect(); } catch (e) { }
-                    }
                     if (retries > 0) await new Promise(resolve => setTimeout(resolve, 250));
                     else throw gattError;
                 }
             }
         } catch (error) {
-            console.error(`[${this.role}] Error fatal:`, error);
-            if (error.name !== 'NotFoundError') {
-                alert(`Error de conexión: ${error.message}`);
-            }
+            console.error(`[${this.role}] Error:`, error);
             return false;
         }
     }
@@ -92,11 +81,29 @@ class BLEProxy {
         const value = event.target.value;
         const chunk = this.decoder.decode(value);
         this.buffer += chunk;
+
+        // Cancelar flush pendiente si llega más data
+        if (this.flushTimeout) clearTimeout(this.flushTimeout);
+
         let lines = this.buffer.split('\n');
-        this.buffer = lines.pop();
-        for (let line of lines) {
-            line = line.trim();
-            if (line.length > 0 && this.onDataReceived) this.onDataReceived(line);
+        
+        // Si hay líneas completas (terminan en \n), procésalas
+        if (lines.length > 1) {
+            this.buffer = lines.pop(); // Lo último se queda en el buffer por si está incompleto
+            for (let line of lines) {
+                line = line.trim();
+                if (line.length > 0 && this.onDataReceived) this.onDataReceived(line);
+            }
+        }
+
+        // Si queda algo en el buffer y no llega nada más en 100ms, lo forzamos (Flush)
+        if (this.buffer.length > 0) {
+            this.flushTimeout = setTimeout(() => {
+                if (this.buffer.length > 0) {
+                    if (this.onDataReceived) this.onDataReceived(this.buffer.trim());
+                    this.buffer = "";
+                }
+            }, 100);
         }
     }
 
@@ -270,7 +277,7 @@ export function conectarEmulador() {
         // Mostrar mensajes recibidos
         const masterChat = document.getElementById('chat-master-recibido');
         if (masterChat) {
-            masterChat.value += data + "\n";
+            masterChat.value += "RECIBIDO: " + data + "\n";
             masterChat.scrollTop = masterChat.scrollHeight;
         }
     };
@@ -363,7 +370,7 @@ export function cambiarVistaConfig() {
 
         if (profile === "TMP") {
             paramsHTML += `
-            <div class="p-3 bg-white border border-success border-opacity-25 rounded-4 shadow-sm animate__animated animate__fadeInLeft">
+            <div class="p-3 bg-white border border-success border-opacity-25 rounded-4 shadow-sm animate__animated animate__fadeInLeft mt-2">
                 <div class="small fw-bold text-success mb-2"><i class="bi bi-pin-map-fill me-1"></i> Configuración Pin ADD0</div>
                 <div class="row g-2 text-center small">
                     <div class="col-6 border-end border-success border-opacity-10">
@@ -570,8 +577,8 @@ export function aplicarEmulacion() {
         bleDestino.sendData(`CFG_BAUD:${baud}`);
     } else if (proto === 'I2C') {
         const profile = document.getElementById('emu-i2c-profile')?.value || "BMP180";
-        const addr = (profile === "TMP") ? "0x48" : "0x77";
-        const speed = "100000";
+        const addr = document.getElementById('emu-i2c-addr')?.value || (profile === "TMP" ? "0x48" : "0x77");
+        const speed = document.getElementById('emu-i2c-speed')?.value || "100000";
         cmd += `${addr}:${speed}:${profile}`;
     } else if (proto === 'SPI') {
         const fullModeSelect = document.getElementById('emu-spi-mode-full');
@@ -634,6 +641,14 @@ export function enviarMensajeManual() {
     const cmd = `EMU_MSG:${proto}:${data}`;
     console.log("Enviando mensaje manual:", cmd);
     bleEmulador.sendData(cmd);
+
+    // Eco Local: Mostrar lo que enviamos en el chat
+    const masterChat = document.getElementById('chat-master-recibido');
+    if (masterChat) {
+        masterChat.value += "ENVIADO: " + data + "\n";
+        masterChat.scrollTop = masterChat.scrollHeight;
+    }
+    document.getElementById('emu-manual-data').value = "";
 }
 
 export function detenerEmulacion() {
@@ -723,7 +738,7 @@ export function conectarDestinoUART() {
         }
 
         if (chatArea) {
-            chatArea.value += data + "\n";
+            chatArea.value += "RECIBIDO: " + data + "\n";
             chatArea.scrollTop = chatArea.scrollHeight;
         }
     };
@@ -732,10 +747,20 @@ export function conectarDestinoUART() {
 }
 
 export function responderDestinoUART() {
-    const data = document.getElementById('destino-manual-data').value;
+    const dataInput = document.getElementById('destino-manual-data');
+    const data = dataInput.value;
     if (!data) return;
+    
     bleDestino.sendData(data);
-    document.getElementById('destino-manual-data').value = "";
+    
+    // Eco Local: Mostrar lo que enviamos en el chat del Slave
+    const chatArea = document.getElementById('chat-slave-recibido');
+    if (chatArea) {
+        chatArea.value += "ENVIADO: " + data + "\n";
+        chatArea.scrollTop = chatArea.scrollHeight;
+    }
+    
+    dataInput.value = "";
 }
 
 export function limpiarChat(rol) {

@@ -1,39 +1,35 @@
-# 📌 Guía de Conexiones — ESP32 Slave (Pruebas)
+# Guía de Conexión Física — ESP32 Pruebas Slave
 
-Este dispositivo actúa como el **receptor del canal UART**. Recibe mensajes del Maestro y los notifica a la web vía **Bluetooth (BLE)**.
+Este módulo actúa como el "Extremo Receptor" o "Destino" en las pruebas de comunicación. Su función principal es recibir datos por UART y reportarlos a la interfaz para verificar que el mensaje llegó íntegro.
 
----
+## 💡 LEDs Indicadores (Slave)
 
-## 🚦 LEDs Indicadores
-Conecta cada LED con una resistencia de **220 Ω a 330 Ω**.
-
-| Indicador | Pin GPIO | Color LED | Color Cable Sugerido | Comportamiento |
-|:---|:---:|:---|:---|:---|
-| **Modo UART** | **13** 🔴 | 🔴 Rojo | 🔴 Rojo | Parpadea según el baudrate (1=9600...5=115200). |
-| **Estado BLE** | **2** ⚪ | ⚪ Blanco | ⚪ Blanco | Parpadea buscando conexión; fijo al conectar. |
-| **Status OK** | **15** 🟢 | 🟢 Verde | 🟢 Verde | Parpadea al recibir PING o datos del Maestro. |
+| LED | GPIO | Función | Comportamiento |
+|:---:|:---:|:---|:---|
+| **⚪ Blanco** | **4** | **Estado BLE** | Parpadea buscando conexión. Fijo al vincular. |
+| **🟢 Verde** | **13** | **PING OK** | Destella al recibir un comando PING desde la web. |
+| **🔴 Rojo** | **14** | **Actividad UART** | Parpadea según la velocidad (Baudrate) configurada. |
 
 ---
 
-## 🧪 Conexiones de Protocolo
+## 🔌 Conexiones de Protocolo
 
-### 📟 UART (Módulo MAX3232)
+### 📟 UART / RS232 (Conexión Destino)
+Es el puerto que recibe los mensajes enviados por el Master o el Visualizador.
 
-| Función ESP32 | Pin GPIO | Color Cable Sugerido | Conexión Física |
+| Función | Pin GPIO | Color Sugerido | Nota Técnica |
 |:---|:---:|:---|:---|
-| **RX** (Escucha) | **16** 🟣 | 🟣 Morado | TX del módulo MAX3232 Slave |
-| **TX** (Envía) | **17** 🟤 | 🟤 Café | RX del módulo MAX3232 Slave |
+| **RX2** | **16** 🟣 | 🟣 Púrpura | Conectar al **TX** del emisor (Master o Sniffer). |
+| **TX2** | **17** 🟤 | 🟤 Marrón | Conectar al **RX** del emisor (Master o Sniffer). |
 
-> **Nota Técnica:** Los baudrates (9600 a 115200) se sincronizan automáticamente desde la interfaz web.
+> [!IMPORTANT]
+> **REGLA DE ORO:** Recuerda siempre realizar la conexión cruzada (**RX ↔ TX**) y asegurar una **tierra (GND) común** entre todos los ESP32 para evitar ruido o errores de trama.
 
 ---
 
-## ⚠️ Notas de Implementación (Slave)
-- **Corte de Mensajes (Chunking):** Se implementó un sistema de **fragmentación BLE (20 bytes)** para asegurar que los mensajes largos del Maestro no se pierdan debido a los límites del Bluetooth.
-- **Lectura UART Fluida:** El código procesa los datos carácter por carácter en lugar de esperar una línea completa, lo que garantiza una respuesta instantánea.
-- **GND:** Es obligatorio unir el pin **GND** de este ESP32 con el GND del Maestro y del módulo MAX3232.
-
-## 🛠️ Solución de Problemas (Troubleshooting)
-- **¿LED Blanco parpadea infinito?** Revisa que el Bluetooth de tu PC esté encendido y que el dispositivo aparezca como "SerialScope Pruebas Slave".
-- **¿No llegan datos al monitor serial?** Verifica que la velocidad del monitor esté a **115200 baudios**.
-- **¿Datos invertidos?** Si recibes basura, intercambia los cables RX y TX en los pines 16 y 17.
+## ⚠️ Notas de Implementación
+- **Alimentación:** VCC → **3.3V**. Todos los pines operan a nivel lógico de 3.3V.
+- **Baudrate:** El número de destellos en el **LED Rojo** indica la velocidad:
+  - 1 parpadeo: 9600 bps
+  - 5 parpadeos: 115200 bps
+- **Reset:** Si cambias la velocidad en la interfaz y el LED no cambia, pulsa el botón EN (Reset) del ESP32 Slave.

@@ -72,7 +72,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
     void onDisconnect(BLEServer* pServer) { 
         deviceConnected = false; 
         digitalWrite(LED_BLE_BLANCO, LOW);
-        digitalWrite(LED_MODO_ROJO, LOW);
+        digitalWrite(LED_UART_ROJO, LOW);
         Serial.println("Bluetooth Desconectado (Slave)");
         ledBlinkTarget = 0;
     }
@@ -132,7 +132,7 @@ void setup() {
     digitalWrite(LED_STATUS_VERDE, LOW);
 
     //Inicialización del dispositivo BLE
-    BLEDevice::init("SerialScope Pruebas Slave");
+    BLEDevice::init("SerialScope Slave");
     pServer = BLEDevice::createServer();
     pServer->setCallbacks(new MyServerCallbacks());
     BLEService *pService = pServer->createService(SERVICE_UUID);
@@ -165,9 +165,7 @@ void loop() {
             lastBlinkTime = millis();
         }
     } else {
-        if (millis() - lastBlinkTime > 2000) {
-            digitalWrite(LED_BLE_BLANCO, LOW);
-        }
+        digitalWrite(LED_BLE_BLANCO, HIGH);
     }
 
     //Lógica LED Verde (PING)

@@ -3,9 +3,9 @@ import { wifiAnalizador } from './wifi_connection.js';
 let chartCH1, chartCH2;
 // Colas para Transmisión (Salida Manual)
 let queueTX = { bits: [], clock: [], lastBit: 1, lastClock: 1 };
-// Colas para Recepción Canal 1 (Master Side)
+// Colas para Recepción Canal 1
 let queueCH1 = { rx: [], tx: [], sck: [], cs: [], lastRX: 1, lastTX: 1, lastSCK: 1, lastCS: 1 };
-// Colas para Recepción Canal 2 (Slave Side)
+// Colas para Recepción Canal 2
 let queueCH2 = { rx: [], tx: [], sck: [], cs: [], lastRX: 1, lastTX: 1, lastSCK: 1, lastCS: 1 };
 
 
@@ -129,13 +129,19 @@ function createOscilloscopeInstance(canvas, label, color1, color2) {
             spanGaps: true,
             scales: {
                 x: { display: false },
-                y: { min: -2.0, max: 1.5, ticks: { display: false }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                y: { min: -2.0, max: 1.5, ticks: { display: false }, grid: { color: 'rgba(0,0,0,0.1)' } }
             },
             plugins: {
                 legend: {
                     display: true,
                     position: 'top',
-                    labels: { color: '#fff', boxWidth: 10, font: { size: 10 } }
+                    labels: {
+                        color: '#000',
+                        boxWidth: 10,
+                        font: { size: 10 },
+                        // Ocultar de la leyenda si no tiene texto (para canales no usados)
+                        filter: (item) => item.text !== ""
+                    }
                 }
             }
         }
@@ -211,10 +217,10 @@ function shiftChart(chart, queue, proto) {
         chart.update('none');
     }
 
-    // Ocultar overlays
-    if (queue.rx.length > 0) {
-        const id = chart === chartCH1 ? 'overlay-ch1' : 'overlay-ch2';
-        document.getElementById(id)?.classList.add('hidden');
+    // Ocultar overlays si hay cualquier actividad (RX o TX)
+    if (queue.rx.length > 0 || queue.tx.length > 0) {
+        document.getElementById('overlay-ch1')?.classList.add('hidden');
+        document.getElementById('overlay-ch2')?.classList.add('hidden');
     }
 }
 
@@ -432,15 +438,13 @@ export function procesarEntradaAnalizador(linea) {
                 queueCH1.sck.push(...mosiSignals.sck); // SCK
                 queueCH1.cs.push(...mosiSignals.cs);   // CS
 
-                // 2. Tabla (Colores solicitados: MOSI: Azul, MISO: Blanco, CS: Naranja, SCK: Gris)
-                agregarFilaTabla(time, "CS", "SPI", "Active LOW", "bg-cs-orange");
-                agregarFilaTabla(time, "SCK", "SPI", "Clock Pulse", "bg-sck-gray");
-                agregarFilaTabla(time, "MOSI", "SPI", mosiClean, "bg-mosi-blue");
-                agregarFilaTabla(time, "MISO", "SPI", misoClean, "bg-miso-white");
+                // 2. Tabla (Solo MOSI y MISO, según solicitud del usuario)
+                agregarFilaTabla(time, "MOSI", "SPI", mosiClean, "bg-primary");
+                agregarFilaTabla(time, "MISO", "SPI", misoClean, "bg-light text-dark border");
             }
         } else {
             // UART e I2C (procesamiento original)
-            hexList.forEach(hex => {
+            hexList.forEach((hex, i) => {
                 const cleanHex = hex.toUpperCase().startsWith('0X') ? hex.toUpperCase() : "0x" + hex.toUpperCase();
                 let esM2S = linea.includes(":M2S:");
 
@@ -448,11 +452,13 @@ export function procesarEntradaAnalizador(linea) {
                 let colorBadge = "bg-secondary";
 
                 if (protoStr === "UART") {
-                    direccion = esProxy ? (esM2S ? "MSTR ➔ SLV" : "SLV ➔ MSTR") : "UART";
-                    colorBadge = esM2S ? "bg-danger" : "bg-danger"; // Rojo como el LED físico
+                    // En UART, i determina el lado del puente (0 para M2S, 1 para S2M si vienen en par)
+                    // O se usa esM2S si vienen individuales
+                    direccion = esM2S ? "Canal 1 > Canal 2" : "Canal 2 > Canal 1";
+                    colorBadge = esM2S ? "bg-danger" : "bg-primary"; // Rojo para Canal 1, Azul para Canal 2
                 } else if (protoStr === "I2C") {
                     direccion = "SDA";
-                    colorBadge = "bg-primary";
+                    colorBadge = "bg-success"; // Verde para SDA (Datos)
                 }
 
                 // 1. Gráfica
@@ -481,6 +487,8 @@ export function procesarEntradaAnalizador(linea) {
 }
 
 function agregarFilaTabla(time, direccion, proto, dato, badgeClass) {
+    if (isPaused) return; // No agregar a la tabla si la captura está pausada
+
     const body = document.getElementById('decodificacionBody');
     if (body) {
         if (body.innerHTML.includes('Esperando actividad')) body.innerHTML = '';
@@ -523,7 +531,6 @@ export function actualizarConfiguracion(selectId) {
 
     // 1. Manejo de Controles de Datos (Master/Slave)
     if (activeControls) {
-        // Solo mostrar controles de datos para SPI Master/Slave o I2C Master. I2C Slave ha sido removido.
         activeControls.style.display = (role === 'SNIFFER' || proto === 'UART' || (proto === 'I2C' && role === 'SLAVE')) ? 'none' : 'block';
         document.getElementById('slave-memory-config').style.display = (role === 'SLAVE' && proto === 'SPI') ? 'block' : 'none';
         document.getElementById('master-send-config').style.display = (role === 'MASTER') ? 'block' : 'none';
@@ -547,13 +554,13 @@ export function actualizarConfiguracion(selectId) {
             </div>`;
 
         if (containerCH2) containerCH2.style.display = 'block';
-        badgeCH1.innerText = "CANAL 1 (Master Side)";
+        badgeCH1.innerText = "CANAL 1 ";
         badgeCH1.className = "badge bg-danger"; // Rojo como el LED físico
         overlayTextCH1.innerText = "SIN SEÑAL CH1";
 
         if (chartCH1 && chartCH2) {
-            reconfigurarDatasets(chartCH1, [{ label: "RX1 (Input Maestro)", color: "#00f2ff" }, { label: "TX1 (Output Maestro)", color: "#7000ff" }]);
-            reconfigurarDatasets(chartCH2, [{ label: "RX2 (Input Esclavo)", color: "#ff00ff" }, { label: "TX2 (Output Esclavo)", color: "#00ff00" }]);
+            reconfigurarDatasets(chartCH1, [{ label: "RX1", color: "#a333ff" }, { label: "TX1", color: "#8b4513" }]);
+            reconfigurarDatasets(chartCH2, [{ label: "RX2", color: "#a333ff" }, { label: "TX2", color: "#8b4513" }]);
         }
 
     } else if (proto === 'I2C') {
@@ -591,7 +598,7 @@ export function actualizarConfiguracion(selectId) {
         overlayTextCH1.innerText = `SIN SEÑAL I²C ${role}`;
 
         if (chartCH1) {
-            reconfigurarDatasets(chartCH1, [{ label: "SDA (Datos)", color: "#eab308" }, { label: "SCL (Reloj)", color: "#ca8a04" }]);
+            reconfigurarDatasets(chartCH1, [{ label: "SDA (Datos)", color: "#00ff00" }, { label: "SCL (Reloj)", color: "#ffff00" }]);
         }
 
     } else if (proto === 'SPI') {
@@ -634,8 +641,10 @@ export function actualizarConfiguracion(selectId) {
 
         if (chartCH1) {
             reconfigurarDatasets(chartCH1, [
-                { label: "MOSI", color: "#3b82f6" }, { label: "MISO", color: "#1e40af" },
-                { label: "SCK", color: "#60a5fa" }, { label: "CS", color: "#ef4444" }
+                { label: 'SCK', color: '#808080' },    // SCK (Gris)
+                { label: 'MOSI', color: '#007bff' },   // MOSI (Azul)
+                { label: 'MISO', color: '#999999' },   // MISO (Gris Visible)
+                { label: 'CS', color: '#fd7e14' }      // CS (Naranja)
             ]);
         }
     }
@@ -798,11 +807,34 @@ window.resetCharts = resetCharts;
 window.clearData = clearData;
 
 /**
+ * Activa o desactiva el panel de configuración de protocolo
+ */
+function toggleProtocolConfig(enabled) {
+    const panel = document.getElementById('panel-config-proxy');
+    const select = document.getElementById('protocoloSelect');
+    const applyBtn = document.getElementById('btn-aplicar-config-proxy');
+    const configDinamica = document.getElementById('configuracionDinamica');
+
+    if (select) select.disabled = !enabled;
+    if (applyBtn) applyBtn.disabled = !enabled;
+
+    if (configDinamica) {
+        const inputs = configDinamica.querySelectorAll('input, select, button');
+        inputs.forEach(el => el.disabled = !enabled);
+    }
+
+    if (panel) {
+        panel.style.opacity = enabled ? "1" : "0.5";
+        panel.style.pointerEvents = enabled ? "auto" : "none";
+    }
+}
+
+/**
  * Reconfigura los datasets de un chart (colores y etiquetas)
  */
 function reconfigurarDatasets(chart, config) {
     if (!chart) return;
-    
+
     // Actualizar cada dataset según la configuración recibida
     config.forEach((c, i) => {
         if (chart.data.datasets[i]) {
@@ -816,6 +848,7 @@ function reconfigurarDatasets(chart, config) {
     // Ocultar los datasets sobrantes (si los hay)
     for (let i = config.length; i < chart.data.datasets.length; i++) {
         chart.data.datasets[i].hidden = true;
+        chart.data.datasets[i].label = ""; // Limpiar etiqueta para que el filtro de leyenda lo oculte
     }
 
     chart.update('none');
@@ -827,7 +860,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (document.getElementById('chartCH1')) {
         initChart();
         startLiveClock();
-        
+        toggleProtocolConfig(false); // Iniciar deshabilitado hasta conectar
+
         // Pequeño retardo para asegurar que todo esté listo antes de la config inicial
         setTimeout(() => {
             actualizarConfiguracion('protocoloSelect');
@@ -865,6 +899,7 @@ window.conectarAnalizador = () => {
         if (pingBtn) pingBtn.disabled = false;
 
         actualizarConfiguracion('protocoloSelect');
+        toggleProtocolConfig(true);
         alert("✅ Conectado con éxito al Visualizador.");
     };
 
@@ -879,6 +914,7 @@ window.conectarAnalizador = () => {
         }
         const pingBtn = document.getElementById('btn-ping');
         if (pingBtn) pingBtn.disabled = true;
+        toggleProtocolConfig(false);
     };
 
     wifiAnalizador.onDataReceived = procesarEntradaAnalizador;

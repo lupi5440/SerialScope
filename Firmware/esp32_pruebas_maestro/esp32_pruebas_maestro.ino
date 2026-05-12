@@ -197,7 +197,7 @@ void setup() {
     pAdvertising->addServiceUUID(SERVICE_UUID);
     pAdvertising->setScanResponse(true);
     pAdvertising->start();
-
+    
     Serial.println("[SISTEMA] >>> Maestro listo y visible.");
 }
 
@@ -357,7 +357,7 @@ void loop() {
             uartIncoming += (char)Serial2.read();
         }
         Serial.println("[UART] >>> RX Slave: " + uartIncoming);
-        bleSend("Recibido: " + uartIncoming);
+        bleSend(uartIncoming); 
     }
 
     delay(10);
@@ -383,7 +383,7 @@ String getParam(String data, int index) {
     return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-// ****************121************************************************************************
+// ****************************************************************************************
 //                                    INTERPRETE COMANDOS          
 // ****************************************************************************************
 void ejecutarComando(String cmd) {
@@ -404,6 +404,9 @@ void ejecutarComando(String cmd) {
         bleSend("STOP_OK"); 
         return; 
     }
+
+    // 4. I2C_SCAN: Eliminado tras pruebas de diagnóstico
+
 
     // 3. EMU_CONFIG: Configurar parámetros de prueba
     if (cmd.startsWith("EMU_CONFIG:")) {
@@ -436,7 +439,7 @@ void ejecutarComando(String cmd) {
             
             int blinks = (speed == 400000) ? 2 : 1;
 
-            Wire.begin(); 
+            Wire.begin(21, 22); 
             Wire.setClock(speed);
             actualizarLeds(I2C_EMU, blinks);
             digitalWrite(LED_STATUS_VERDE, LOW);
@@ -487,23 +490,26 @@ void ejecutarComando(String cmd) {
         String p = cmd.substring(f+1, s);
         String data = cmd.substring(s+1);
         
-        if (p == "UART" && modoActual == UART_EMU) {
+        if (p == "UART") {
             Serial2.print(data);
-            bleSend("Enviado: " + data);
+            // bleSend(data); // Eliminamos el eco para evitar duplicados en la web
             digitalWrite(LED_STATUS_VERDE, HIGH);
             greenLedTurnOffTime = millis() + 200;
         } else if (p == "I2C") {
             // Caso 1: Solicitud de calibración BMP180
             if (data == "READ_CALIB") {
-                Serial.println("\n[SISTEMA] >>> Solicitando tabla de calibración al BMP180 (Addr: 0x77)...");
-                Wire.beginTransmission(0x77);
+                Serial.print("\n[SISTEMA] >>> Solicitando tabla de calibración al sensor en 0x");
+                Serial.println(i2cAddress, HEX);
+                
+                Wire.beginTransmission(i2cAddress);
                 Wire.write(0xAA);
                 if (Wire.endTransmission() != 0) {
-                    Serial.println("[ERROR] No se detecta el sensor en 0x77.");
+                    Serial.print("[ERROR] No se detecta el sensor en 0x");
+                    Serial.println(i2cAddress, HEX);
                     bleSend("RESULTADO:Error: Sensor NACK");
                     return;
                 }
-                Wire.requestFrom(0x77, 22);
+                Wire.requestFrom(i2cAddress, 22);
                 String hexBuffer = "";
                 if (Wire.available() == 22) {
                     for (int i = 0; i < 22; i++) {
