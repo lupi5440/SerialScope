@@ -465,10 +465,24 @@ void actualizarLedsProtocolo(String proto, int blinks) {
     } 
 }
 
-// Enviar texto al WebSocket
+// Enviar texto al WebSocket de forma segura (Thread-safe y control de saturación)
 void wsSend(String texto) {
     if (ws.count() > 0) {
-        ws.textAll(texto);
+        // Iterar sobre todos los clientes conectados
+        for(const auto& c : ws.getClients()) {
+            AsyncWebSocketClient *client = c.second;
+        
+            // Solo enviar si el cliente está conectado y su cola de red NO está llena
+            if(client != nullptr && client->status() == WS_CONNECTED) {
+                if (!client->queueIsFull()) {
+                    client->text(texto);
+                } else {
+                    Serial.println("[Aviso] >>> Cola WS llena, descartando paquete visual para evitar Crash.");
+                    digitalWrite(LED_STATUS_VERDE, HIGH);
+                    greenLedTurnOffTime = millis() + 100; // El loop() lo apagará tras 100ms
+                }
+            }
+        }
     }
 }
 
