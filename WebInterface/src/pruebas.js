@@ -1,6 +1,5 @@
-/**
- * LÓGICA DE CONEXIÓN BLE (Integrada)
- */
+//LÓGICA DE CONEXIÓN BLE
+
 const BLE_SERVICE_UUID = '6e400001-b5a3-f393-e0a9-e50e24dcca9e';
 const BLE_RX_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e';
 const BLE_TX_UUID = '6e400003-b5a3-f393-e0a9-e50e24dcca9e';
@@ -48,6 +47,7 @@ class BLEProxy {
                     if (!this.server) throw new Error("No se pudo obtener el servidor GATT");
 
                     console.log(`[${this.role}] GATT conectado, obteniendo servicios...`);
+
                     // Pausa de seguridad para estabilizar la conexión BLE
                     await new Promise(resolve => setTimeout(resolve, 500));
 
@@ -118,11 +118,6 @@ export const bleDestino = new BLEProxy('UART Dest');
 let bmpCalib = null;
 let wizardStep = 0;
 
-/**
- * Conexión del Emulador BLE
- * Engancha la UI con la lógica core de conexión Bluetooth alojada en ble_connection.js.
- * Gestiona el bloqueo de botones e inputs para evitar que el usuario intente mandar comandos sin estar conectado.
- */
 export function conectarEmulador() {
     const statusEl = document.getElementById('status-emulador');
     const btnConectar = document.getElementById('btn-conectar-emulador');
@@ -214,7 +209,7 @@ export function conectarEmulador() {
                 if (sensorRaw) sensorRaw.innerText = displayVal;
 
                 // --- LÓGICA DE CALIBRACIÓN BMP180 ---
-                if (profile === "BME") {
+                if (profile === "BMP180") {
                     // Si recibimos una ráfaga larga (22 bytes en hex separados por coma o espacio)
                     const hexList = rawVal.split(/[\s,]+/).filter(x => x.length > 0);
 
@@ -244,7 +239,7 @@ export function conectarEmulador() {
                         setTimeout(() => { bleEmulador.sendData("EMU_START"); }, 500);
                     }
                     else if (bmpCalib && !isNaN(parseInt(displayVal))) {
-                        // Fase de LECTURA: Aplicar fórmula Bosch
+                        // Fase de LECTURA: Fórmula Bosch
                         const ut = parseInt(displayVal);
                         let x1 = (ut - bmpCalib.ac6) * bmpCalib.ac5 / 32768;
                         let x2 = (bmpCalib.mc * 2048) / (x1 + bmpCalib.md);
@@ -272,7 +267,7 @@ export function conectarEmulador() {
             return;
         }
 
-        // Mostrar mensajes recibidos (probablemente del Slave)
+        // Mostrar mensajes recibidos
         const masterChat = document.getElementById('chat-master-recibido');
         if (masterChat) {
             masterChat.value += data + "\n";
@@ -346,9 +341,9 @@ export function cambiarVistaConfig() {
                 </select>
             </div>`;
     } else if (proto === 'I2C') {
-        const profile = document.getElementById('emu-i2c-profile')?.value || "BME";
+        const profile = document.getElementById('emu-i2c-profile')?.value || "BMP180";
         const initialAddr = (profile === "TMP") ? "0x48" : "0x77";
-        const isReadOnly = (profile === "BME") ? "readonly" : "";
+        const isReadOnly = (profile === "BMP180") ? "readonly" : "";
 
         paramsHTML = `
             <div class="row g-2 mb-3">
@@ -403,14 +398,14 @@ export function cambiarVistaConfig() {
                     </select>
                 </div>`;
         } else if (proto === 'I2C') {
-            const currentProfile = document.getElementById('emu-i2c-profile')?.value || "BME";
+            const currentProfile = document.getElementById('emu-i2c-profile')?.value || "BMP180";
             sensorHTML = `
                 <div class="mb-3">
                     <label class="form-label fw-bold small text-muted">
                         <i class="bi bi-cpu-fill me-1"></i>Perfil de Sensor
                     </label>
                     <select id="emu-i2c-profile" class="form-select border-2 border-success border-opacity-50 shadow-none" onchange="cambiarPerfilI2C()">
-                        <option value="BME" ${currentProfile === 'BME' ? 'selected' : ''}>☁️ Sensor Barométrico (BMP180)</option>
+                        <option value="BMP180" ${currentProfile === 'BMP180' ? 'selected' : ''}>☁️ Sensor Barométrico (BMP180)</option>
                         <option value="TMP" ${currentProfile === 'TMP' ? 'selected' : ''}>🌡️ Sensor Temperatura (TMP102)</option>
                     </select>
                 </div>`;
@@ -574,7 +569,7 @@ export function aplicarEmulacion() {
         // Enviar también al Destino UART para que se sincronice a la misma velocidad
         bleDestino.sendData(`CFG_BAUD:${baud}`);
     } else if (proto === 'I2C') {
-        const profile = document.getElementById('emu-i2c-profile')?.value || "BME";
+        const profile = document.getElementById('emu-i2c-profile')?.value || "BMP180";
         const addr = (profile === "TMP") ? "0x48" : "0x77";
         const speed = "100000";
         cmd += `${addr}:${speed}:${profile}`;
@@ -612,7 +607,7 @@ export function iniciarEmulacion() {
     const profile = document.getElementById('emu-i2c-profile')?.value;
 
     // Si es BMP180 y no tenemos calibración, la pedimos primero
-    if (profile === "BME" && !bmpCalib) {
+    if (profile === "BMP180" && !bmpCalib) {
         console.log("Solicitando calibración BMP180...");
         bleEmulador.sendData("EMU_MSG:I2C:READ_CALIB");
         // Nota: El firmware debe responder enviando los 22 bytes en un RESULTADO:

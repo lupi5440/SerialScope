@@ -229,7 +229,7 @@ void processTasks() {
         if (millis() - ultimaTarea > 1000) {
             String msg = "";
             
-            if (i2cProfile == "BME") {
+            if (i2cProfile == "BMP180") {
                 // Tráfico I2C Real para BMP180
                 Wire.beginTransmission(i2cAddress);
                 Wire.write(0xF4);
@@ -493,7 +493,7 @@ void ejecutarComando(String cmd) {
             digitalWrite(LED_STATUS_VERDE, HIGH);
             greenLedTurnOffTime = millis() + 200;
         } else if (p == "I2C") {
-            // Caso 1: Lectura de calibración (ya existente)
+            // Caso 1: Solicitud de calibración BMP180
             if (data == "READ_CALIB") {
                 Serial.println("\n[SISTEMA] >>> Solicitando tabla de calibración al BMP180 (Addr: 0x77)...");
                 Wire.beginTransmission(0x77);

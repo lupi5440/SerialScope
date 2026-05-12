@@ -87,6 +87,7 @@ void wsSend(String texto);
 
 // Funcion para actualizar los LEDs
 void actualizarLedsProtocolo(String proto, int blinks) {
+    
     // Limpiar el estado de los LEDs
     digitalWrite(LED_UART_ROJO, LOW);
     digitalWrite(LED_I2C_AMARILLO, LOW);
@@ -387,6 +388,14 @@ void ejecutarComando(String cmd) {
         Wire.end();
         startSniffingI2C();
         wsSend(err == 0 ? "I2C_TX_OK" : "I2C_TX_ERR");
+
+        // RE-INICIALIZACIÓN CRÍTICA: El bus I2C puede resetear el modo de los pines cercanos
+        pinMode(LED_UART_ROJO, OUTPUT);
+        pinMode(LED_I2C_AMARILLO, OUTPUT);
+        pinMode(LED_SPI_AZUL, OUTPUT);
+        pinMode(LED_WIFI_BLANCO, OUTPUT);
+        pinMode(LED_STATUS_VERDE, OUTPUT);
+        pinMode(LED_FRECUENCIA_SPI, OUTPUT);
     }
 
     // SPI SLAVE EMULATION
@@ -532,6 +541,19 @@ void setup() {
     //  Inicialización de comunicación serial para serial monitor del IDE Arduino
     Serial.begin(115200);
 
+    // Configuración de Pines Seriales 
+    Serial1.begin(115200, SERIAL_8N1, 16, 17); // RX: 16, TX: 17 (Nativo UART2)
+    Serial2.begin(115200, SERIAL_8N1, 33, 32); // RX: 33, TX: 32 (Remapeado de UART1 puede llevar lentitud)
+    
+    // Configuración de Pines SPI 
+    SPI_Sensing.begin(18, 19, 23, 5);
+
+    // Configurar interrupciones I2C 
+    pinMode(21, INPUT_PULLUP);
+    pinMode(22, INPUT_PULLUP);
+    attachInterrupt(digitalPinToInterrupt(22), onSCLRising, RISING);
+    attachInterrupt(digitalPinToInterrupt(21), onSDAChange, CHANGE);
+
     // Configuración de pines para LEDs
     pinMode(LED_UART_ROJO, OUTPUT);
     pinMode(LED_SPI_AZUL, OUTPUT);
@@ -540,14 +562,13 @@ void setup() {
     pinMode(LED_STATUS_VERDE, OUTPUT);
     pinMode(LED_FRECUENCIA_SPI, OUTPUT);
     
-    // Estado inicial de LEDs
-    digitalWrite(LED_UART_ROJO, LOW);
-    digitalWrite(LED_SPI_AZUL, LOW);
-    digitalWrite(LED_I2C_AMARILLO, LOW);
+    // Estado inicial de LEDs 
     digitalWrite(LED_WIFI_BLANCO, LOW);
     digitalWrite(LED_STATUS_VERDE, LOW);
     digitalWrite(LED_FRECUENCIA_SPI, LOW);
-    actualizarLedsProtocolo("", 0);
+    digitalWrite(LED_UART_ROJO, LOW);
+    digitalWrite(LED_SPI_AZUL, LOW);
+    digitalWrite(LED_I2C_AMARILLO, LOW);
     
     // Configura el punto de acceso Wi-Fi
     WiFi.softAP(ssid, password);
@@ -558,30 +579,9 @@ void setup() {
     server.addHandler(&ws);
     server.begin();
 
-    // Configuración de Pines Seriales (Sin pinMode previo para evitar conflictos con el driver UART)
-    Serial1.begin(115200, SERIAL_8N1, 16, 17); // RX: 16, TX: 17 (Nativo UART2)
-    Serial2.begin(115200, SERIAL_8N1, 33, 32); // RX: 33, TX: 32 (Remapeado de UART1 puede llevar lentitud)
-    
-    // Configuración de Pines SPI (Sin pinMode previo para evitar conflictos con el driver SPI)
-    // NOTA: SPI_Sensign es muy agresivo y al inicializar puede desconfigurar puertos cercanos a los del SPI 
-    SPI_Sensing.begin(18, 19, 23, 5);
-
-    // Restaurar LEDs como OUTPUT tras inicializar SPI
-    pinMode(LED_I2C_AMARILLO, OUTPUT);
-    pinMode(LED_SPI_AZUL, OUTPUT);
-    pinMode(LED_UART_ROJO, OUTPUT);
-    pinMode(LED_STATUS_VERDE, OUTPUT);
-    digitalWrite(LED_UART_ROJO, LOW);
-
-    // Configurar interrupciones I2C 
-    pinMode(21, INPUT_PULLUP);
-    pinMode(22, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(22), onSCLRising, RISING);
-    attachInterrupt(digitalPinToInterrupt(21), onSDAChange, CHANGE);
-
     Serial.println("Visualizador SerialScope WiFi Online.");
     
-    // Reservar memoria para los buffers UART para evitar fragmentación (512 para coincidir con el límite de envío)
+    // Reservar memoria para los buffers UART para evitar fragmentación
     bufferM2S.reserve(512);
     bufferS2M.reserve(512);
 }
