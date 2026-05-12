@@ -119,9 +119,13 @@ QueueHandle_t colaComandos;
 //                                       UART  
 // ****************************************************************************************
 
-//Buffer para UART
-String bufferM2S = "";
-String bufferS2M = "";
+// --- Buffers para UART : Anteriormente al llegar un paquete , se creaba un string temporal que llenaba la RAM, ahora solo se guardan los datos en un buffer y se envian al ws cuando llegan varios juntos
+#define UART_BUF_SIZE 256
+uint8_t rawBufferM2S[UART_BUF_SIZE];
+int idxM2S = 0;
+
+uint8_t rawBufferS2M[UART_BUF_SIZE];
+int idxS2M = 0;
 
 // ****************************************************************************************
 //                                    Interrupciones  
@@ -251,9 +255,6 @@ void setup() {
 
     Serial.println("Visualizador SerialScope WiFi Online.");
     
-    // Reservar memoria para los buffers UART para evitar fragmentación
-    bufferM2S.reserve(512);
-    bufferS2M.reserve(512);
 }
 
 // ****************************************************************************************
@@ -370,20 +371,16 @@ void loop() {
     }
 
     // --- PROXY TRANSPARENTE UART ---
-    while (Serial1.available()) {
+    while (Serial1.available() && idxM2S < UART_BUF_SIZE) {
         uint8_t c = Serial1.read();
         Serial2.write(c); 
-        bufferM2S += String(c, HEX) + ",";
-        // Seguridad: Si el buffer es muy grande, forzar un envío inmediato
-        if (bufferM2S.length() > 500) break;
+        rawBufferM2S[idxM2S++] = c; // Guardar el byte crudo (sin crear Strings)
     }
 
-    while (Serial2.available()) {
+    while (Serial2.available() && idxS2M < UART_BUF_SIZE) {
         uint8_t c = Serial2.read();
         Serial1.write(c); 
-        bufferS2M += String(c, HEX) + ",";
-        
-        if (bufferS2M.length() > 512) break;  
+        rawBufferS2M[idxS2M++] = c; // Guardar el byte crudo
     }
 
     // --- SNIFFING I2C (Procesamiento de Buffer) ---
@@ -397,16 +394,33 @@ void loop() {
         wsSend(data);
     }
 
-    // Flush de Buffers UART 
+   // Flush de Buffers UART 
     if (millis() - lastFlushTime > FLUSH_INTERVAL) {
-        if (bufferM2S.length() > 0) {
-            wsSend("UART_RECV_BUF:M2S:" + bufferM2S);
-            bufferM2S = "";
+        
+        char hexTemp[4]; // Búfer temporal para convertir 1 byte a hex "FF,"
+
+        if (idxM2S > 0) {
+            String payload = "UART_RECV_BUF:M2S:";
+            payload.reserve(25 + idxM2S * 3); // Reservar memoria exacta 
+            for (int i = 0; i < idxM2S; i++) {
+                sprintf(hexTemp, "%02X,", rawBufferM2S[i]); // Convertir directo a char
+                payload += hexTemp;
+            }
+            wsSend(payload);
+            idxM2S = 0; // Reiniciar contador
         }
-        if (bufferS2M.length() > 0) {
-            wsSend("UART_RECV_BUF:S2M:" + bufferS2M);
-            bufferS2M = "";
+
+        if (idxS2M > 0) {
+            String payload = "UART_RECV_BUF:S2M:";
+            payload.reserve(25 + idxS2M * 3);
+            for (int i = 0; i < idxS2M; i++) {
+                sprintf(hexTemp, "%02X,", rawBufferS2M[i]);
+                payload += hexTemp;
+            }
+            wsSend(payload);
+            idxS2M = 0; // Reiniciar contador
         }
+        
         lastFlushTime = millis();
     }
 }
