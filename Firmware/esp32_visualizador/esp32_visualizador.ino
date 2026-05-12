@@ -91,7 +91,7 @@ unsigned long lastFlushTime = 0;
 // Protocolo actual
 String currentProtocol = "";
 
-// Instancia para recervar pines SPI 
+// Instancia para reservar pines SPI 
 SPIClass SPI_Sensing(VSPI);
 
 // Definicion de modos SPI y Roles para los protocolos SPI e I2C
@@ -134,7 +134,8 @@ int idxS2M = 0;
 // Declaraciones de interrupciones (ISRs para i2c y spi)
 void IRAM_ATTR onSCLRising();
 void IRAM_ATTR onSDAChange();
-void IRAM_ATTR onSCKRising();
+void IRAM_ATTR onSCKChange(); 
+void IRAM_ATTR onCSChange();  
 
 Role i2cRole = ROLE_SNIFFER;
 Role spiRole = ROLE_SNIFFER;
@@ -163,11 +164,11 @@ volatile int i2cBitCount = 0;                    // Contador de bits para identi
  #define READ_SDA_FAST ((REG_READ(GPIO_IN_REG) >> 21) & 1)
 
 // --- Variables de configuracion modo esclavo I2C con 4 bytes de almacenamiento---
-bool spiSlaveMode = false;
-int spiSlaveBytePtr = 0;  //indice inicio registro byte
-int spiSlaveBitPtr = 0;   //indice bit
-uint8_t spiSlaveBuffer[256]; //buffer 4 registros
-int spiSlaveBufferSize = 0;
+volatile bool spiSlaveMode = false;
+volatile int spiSlaveBytePtr = 0;  //indice inicio registro byte
+volatile int spiSlaveBitPtr = 0;   //indice bit
+volatile uint8_t spiSlaveBuffer[256]; //buffer 4 registros
+volatile int spiSlaveBufferSize = 0;
 
 // ****************************************************************************************
 //                                       SPI      
@@ -194,6 +195,7 @@ int activeSPIMode = 0;
  #define READ_MOSI_FAST ((REG_READ(GPIO_IN_REG) >> 23) & 1)
  #define READ_MISO_FAST ((REG_READ(GPIO_IN_REG) >> 19) & 1)
  #define READ_CS_FAST   ((REG_READ(GPIO_IN_REG) >> 5) & 1)
+ #define READ_SCK_FAST  ((REG_READ(GPIO_IN_REG) >> 18) & 1)  //Saber si esta activo o no el SCK
 
 // ****************************************************************************************
 //                                    SETUP PRINCIPAL          
@@ -494,6 +496,7 @@ void limpiarTodosLosModos() {
     // Detener los 3 protocolos 
     stopSniffingI2C();
     detachInterrupt(digitalPinToInterrupt(18));
+    detachInterrupt(digitalPinToInterrupt(5)); 
     SPI_Sensing.end();
     Serial1.end();
     Serial2.end();
@@ -525,7 +528,7 @@ String getParam(String data, int index) {
     return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
 }
 
-//  Convertir paquete resibido por WS a comando de texto
+// Convertir paquete recibido por WS a comando de texto
 void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
     if (type == WS_EVT_CONNECT) {
         Serial.printf("[WiFi] >>> Cliente conectado a WebSockets (ID: %u)\n", client->id());
@@ -562,7 +565,7 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 void ejecutarComando(String cmd) {
     Serial.println("[WS] >>> " + cmd);
 
-    // 1. PING
+    // 1. Ping de conexión
     if (cmd == "PING") { 
         wsSend("PONG"); 
         digitalWrite(LED_STATUS_VERDE, HIGH);
@@ -570,45 +573,39 @@ void ejecutarComando(String cmd) {
         return; 
     }
     
-    // 2. CONFIG: Configuración de modo (UART, I2C, SPI)
+    // 2. CONFIG: Configuración de modos sniffing (UART, I2C, SPI)
     if (cmd.startsWith("CONFIG:")) {
         estaConfigurando = true;
+        
+        // 1. Extraemos protocolo y rol
         String proto = getParam(cmd, 1);
-        String p2 = getParam(cmd, 2);
-        String role = "SNIFFER";
+        String role  = getParam(cmd, 2); //SNIFFER, MASTER, SLAVE, etc.
         int blinks = 0;
 
-        // --- PARSING INTELIGENTE (Compatible con 3 o 4 partes) ---
-        // Si el segundo parámetro empieza con un número, es el formato viejo (ej: CONFIG:RS232:115200)
-        bool isOldFormat = (p2.length() > 0 && isDigit(p2.charAt(0)));
-        
         if (proto == "UART") {
-            long baud = isOldFormat ? p2.toInt() : getParam(cmd, 3).toInt();
-            role = isOldFormat ? "PROXY" : p2; // UART es siempre Proxy/Activo
+            // JS: CONFIG:UART:ROL:BAUD
+            long baud = getParam(cmd, 3).toInt();
             
-            Serial.println("[CONFIG] >>> UART Proxy a " + String(baud) + " (" + role + ")");
+            Serial.println("[CONFIG] >>> UART " + role + " a " + String(baud) + " bps");
             limpiarTodosLosModos();
             
             Serial1.begin(baud, SERIAL_8N1, 16, 17);
             Serial2.begin(baud, SERIAL_8N1, 33, 32);
             
-            // Para UART siempre parpadeamos porque es modo Proxy Activo
             blinks = (baud >= 115200) ? 5 : 1;
             actualizarLedsProtocolo("UART", blinks);
             
-            // Limpiar parpadeo de frecuencia SPI al cambiar a UART
             freqBlinkTarget = 0;
             digitalWrite(LED_SPI_FREC_AZUL, LOW);
 
         } else if (proto == "I2C") {
-            activeI2CSpeed = isOldFormat ? p2.toInt() : getParam(cmd, 3).toInt();
-            role = isOldFormat ? "SNIFFER" : p2;
-            
-            String addrStr = isOldFormat ? getParam(cmd, 3) : getParam(cmd, 4);
-            String regStr = isOldFormat ? getParam(cmd, 4) : getParam(cmd, 5);
+            // JS: CONFIG:I2C:ROL:SPEED:ADDR:REG
+            activeI2CSpeed = getParam(cmd, 3).toInt();
+            String addrStr = getParam(cmd, 4);
+            String regStr  = getParam(cmd, 5);
             
             if (addrStr != "") activeI2CAddr = strtol(addrStr.c_str(), NULL, 16);
-            if (regStr != "") activeI2CReg = strtol(regStr.c_str(), NULL, 16);
+            if (regStr != "")  activeI2CReg  = strtol(regStr.c_str(), NULL, 16);
 
             Serial.println("[CONFIG] >>> I2C Speed:" + String(activeI2CSpeed) + " Addr:0x" + String(activeI2CAddr, HEX) + " (" + role + ")");
             
@@ -619,26 +616,28 @@ void ejecutarComando(String cmd) {
             actualizarLedsProtocolo("I2C", blinks);
 
         } else if (proto == "SPI") {
-            activeSPIFreq = isOldFormat ? p2.toInt() : getParam(cmd, 3).toInt();
-            role = isOldFormat ? "SNIFFER" : p2;
-            activeSPIMode = isOldFormat ? getParam(cmd, 3).toInt() : getParam(cmd, 4).toInt();
+            // JS: CONFIG:SPI:ROL:FREQ:MODE
+            activeSPIFreq = getParam(cmd, 3).toInt();
+            activeSPIMode = getParam(cmd, 4).toInt();
 
             Serial.println("[CONFIG] >>> SPI Freq:" + String(activeSPIFreq) + " Mode:" + String(activeSPIMode) + " (" + role + ")");
 
             limpiarTodosLosModos();
 
-            pinMode(18, INPUT_PULLUP); // SCK con Pull-Up para evitar ruidos si está suelto
+            pinMode(18, INPUT_PULLUP); // SCK
             pinMode(23, INPUT_PULLUP); // MOSI
             pinMode(19, INPUT_PULLUP); // MISO
             pinMode(5, INPUT_PULLUP);  // CS
             
             spiBitCnt = 0; spiReadIdx = 0; spiWriteIdx = 0;
-            attachInterrupt(digitalPinToInterrupt(18), onSCKRising, RISING);
-            
+
+            attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
+            attachInterrupt(digitalPinToInterrupt(5), onCSChange, CHANGE);
+
             if (role != "SNIFFER") blinks = activeSPIMode + 1;
             actualizarLedsProtocolo("SPI", blinks);
 
-            // Configurar parpadeo de frecuencia SPI (No bloqueante)
+            // Configurar parpadeo de frecuencia SPI
             if (role != "SNIFFER") {
                 freqBlinkTarget = 1; // 1MHz
                 if (activeSPIFreq == 4000000) freqBlinkTarget = 2;
@@ -661,6 +660,7 @@ void ejecutarComando(String cmd) {
         wsSend("READY:PUERTOS_OK");
         return;
     }
+    
 
     // 3. COMANDOS ACTIVOS (Solo si no estamos en CONFIG)
        
@@ -743,7 +743,7 @@ void ejecutarComando(String cmd) {
         digitalWrite(5, HIGH);
         SPI.end();
         pinMode(18, INPUT_PULLUP); //Pull up para evitar que funcione como antena y capte ruido que dispara la interrupción de forma aleatoria.
-        attachInterrupt(digitalPinToInterrupt(18), onSCKRising, RISING);
+        attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
         wsSend("SPI_TX_OK");
     }
 }
@@ -803,44 +803,76 @@ void startSniffingI2C() {
 
 //***************         SPI       **************************** */
 
-// ISR-SPI: Se ejecuta cada vez que el reloj SPI (SCK) sube para obtener dato y guarda en cache si forma un byte lo envia al uart.
- void IRAM_ATTR onSCKRising() {
-     if (READ_CS_FAST == 0) { 
-         if (spiSlaveMode && spiSlaveBufferSize > 0) {
-             uint8_t byteActual = spiSlaveBuffer[spiSlaveBytePtr];
-             int bitValue = (byteActual >> (7 - spiSlaveBitPtr)) & 1;
-             
-             if (bitValue) REG_WRITE(GPIO_OUT_W1TS_REG, (1 << 19)); 
-             else REG_WRITE(GPIO_OUT_W1TC_REG, (1 << 19));         
-             
-             spiSlaveBitPtr++;
-             if (spiSlaveBitPtr >= 8) {
-                 spiSlaveBitPtr = 0;
-                 spiSlaveBytePtr = (spiSlaveBytePtr + 1) % spiSlaveBufferSize;
-             }
-         }
+// ISR-CS: Manejo del Chip Select con soporte dinámico para los 4 modos
+void IRAM_ATTR onCSChange() {
+    if (READ_CS_FAST == 0) {
+        // --- INICIA TRANSMISIÓN (CS BAJA) ---
+        // Modos 0 y 2 (CPHA = 0) necesitan precargar el primer bit ANTES del reloj
+        if ((activeSPIMode == 0 || activeSPIMode == 2) && spiSlaveMode && spiSlaveBufferSize > 0) {
+            uint8_t byteActual = spiSlaveBuffer[spiSlaveBytePtr];
+            int bitValue = (byteActual >> 7) & 1; // Leemos el bit más significativo (bit 7)
+            
+            if (bitValue) REG_WRITE(GPIO_OUT_W1TS_REG, (1 << 19)); // MISO HIGH
+            else REG_WRITE(GPIO_OUT_W1TC_REG, (1 << 19));          // MISO LOW
+            
+            spiSlaveBitPtr = 1; // Ya cargamos el bit 0, el reloj empezará en el bit 1
+        }
+    } else {
+        // --- TERMINA TRANSMISIÓN (CS SUBE) ---
+        // Reseteamos contadores para el siguiente paquete
+        spiBitCnt = 0; 
+        spiByterx = 0;
+        spiBytetx = 0;
+        if (spiSlaveMode) {
+            spiSlaveBytePtr = 0;
+            spiSlaveBitPtr = 0;
+        }
+    }
+}
 
-         spiByterx = (spiByterx << 1) | READ_MOSI_FAST;
-         spiBytetx = (spiBytetx << 1) | READ_MISO_FAST;
-         spiBitCnt++;
+/// ISR-SPI: Manejo del reloj soportando los 4 modos dinámicamente
+void IRAM_ATTR onSCKChange() {
+    // Si el Chip Select (CS) está inactivo (1), ignoramos el reloj (evita ruido)
+    if (READ_CS_FAST == 1) return;
+
+    uint8_t sckState = READ_SCK_FAST;
+
+    // MAGIA DE LOS 4 MODOS:
+    // Los Modos 0 y 3 muestrean (leen) cuando el reloj está en ALTO (1)
+    // Los Modos 1 y 2 muestrean (leen) cuando el reloj está en BAJO (0)
+    bool isSampleEdge = (activeSPIMode == 0 || activeSPIMode == 3) ? (sckState == 1) : (sckState == 0);
+
+    if (isSampleEdge) {
+        // --- FLANCO DE LECTURA (MUESTREO) ---
+        spiByterx = (spiByterx << 1) | READ_MOSI_FAST;
+        spiBytetx = (spiBytetx << 1) | READ_MISO_FAST;
+        spiBitCnt++;
          
-         if (spiBitCnt == 8) {
-             spiRawBuffer[spiWriteIdx] = spiByterx; 
-             spiWriteIdx = (spiWriteIdx + 1) % SPI_BUFFER_SIZE;
-             spiRawBuffer[spiWriteIdx] = spiBytetx; 
-             spiWriteIdx = (spiWriteIdx + 1) % SPI_BUFFER_SIZE;
+        if (spiBitCnt == 8) {
+            spiRawBuffer[spiWriteIdx] = spiByterx; 
+            spiWriteIdx = (spiWriteIdx + 1) % SPI_BUFFER_SIZE;
+            spiRawBuffer[spiWriteIdx] = spiBytetx; 
+            spiWriteIdx = (spiWriteIdx + 1) % SPI_BUFFER_SIZE;
              
-             spiBitCnt = 0;
-             spiByterx = 0;
-             spiBytetx = 0;
-         }
-     } else {
-         spiBitCnt = 0; 
-         spiByterx = 0;
-         spiBytetx = 0;
-         if (spiSlaveMode) {
-             spiSlaveBytePtr = 0;
-             spiSlaveBitPtr = 0;
-         }
-     }
- }
+            spiBitCnt = 0;
+            spiByterx = 0;
+            spiBytetx = 0;
+        }
+    } 
+    else {
+        // --- FLANCO DE ESCRITURA (SHIFT) ---
+        if (spiSlaveMode && spiSlaveBufferSize > 0) {
+            uint8_t byteActual = spiSlaveBuffer[spiSlaveBytePtr];
+            int bitValue = (byteActual >> (7 - spiSlaveBitPtr)) & 1;
+             
+            if (bitValue) REG_WRITE(GPIO_OUT_W1TS_REG, (1 << 19)); 
+            else REG_WRITE(GPIO_OUT_W1TC_REG, (1 << 19));          
+             
+            spiSlaveBitPtr++;
+            if (spiSlaveBitPtr >= 8) {
+                spiSlaveBitPtr = 0;
+                spiSlaveBytePtr = (spiSlaveBytePtr + 1) % spiSlaveBufferSize;
+            }
+        }
+    }
+}
