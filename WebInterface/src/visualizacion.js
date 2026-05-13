@@ -408,8 +408,20 @@ export function procesarEntradaAnalizador(linea) {
         if (resBox) resBox.innerText = linea.substring(13) || "Sin datos";
         return;
     }
-    if (linea.includes("I2C_TX_OK")) { alert("✅ I2C: Mensaje enviado."); return; }
-    if (linea.includes("SPI_TX_OK")) { alert("✅ SPI: Mensaje enviado."); return; }
+
+    // --- Manejo de Respuestas de Escritura ---
+    if (linea.includes("I2C_TX_OK")) {
+        alert("✅ I2C: Escritura exitosa al esclavo.");
+        return;
+    }
+    if (linea.includes("I2C_TX_ERR")) {
+        alert("❌ I2C ERROR: El esclavo no respondió (NACK) o la dirección es incorrecta.");
+        return;
+    }
+    if (linea.includes("SPI_TX_OK")) {
+        alert("✅ SPI: Mensaje enviado.");
+        return;
+    }
 
 
     const time = getFormattedTime();
@@ -538,7 +550,7 @@ export function actualizarConfiguracion(selectId) {
     if (activeControls) {
         activeControls.style.display = (role === 'SNIFFER' || proto === 'UART' || (proto === 'I2C' && role === 'SLAVE')) ? 'none' : 'block';
         document.getElementById('master-send-config').style.display = (role === 'MASTER') ? 'block' : 'none';
-        
+
         if (role === 'MASTER') {
             document.getElementById('i2c-master-controls').style.display = (proto === 'I2C') ? 'block' : 'none';
             document.getElementById('spi-master-controls').style.display = (proto === 'SPI') ? 'block' : 'none';
@@ -685,18 +697,14 @@ export function actualizarConfiguracion(selectId) {
     marcarProxyDesincronizado();
 }
 
-// ========== LÓGICA DE MODOS MAESTRO/ESCLAVO (Mejora 3) ==========
+// =========================================================================
+// FUNCIONES DE CONTROL MAESTRO (I2C y SPI)
+// =========================================================================
 
-window.toggleRoleUI = function () {
-    const role = document.getElementById('deviceRoleSelect').value;
-    document.getElementById('master-send-config').style.display = (role === 'MASTER') ? 'block' : 'none';
-
-    if (role === 'SLAVE') {
-        // Enviar configuración de esclavo al hardware inmediatamente
-        actualizarModoActivoHardware();
-    }
-}
-
+/**
+ * Envia el comando de I2C_WRITE al hardware.
+ * El ESP32 tomará estos datos y fungirá como Maestro para escribirlos en el bus.
+ */
 window.enviarI2CWrite = function () {
     const addr = document.getElementById('i2cTargetAddr').value || "0x08";
     const reg = document.getElementById('i2cTargetReg').value || "0x00";
@@ -705,14 +713,29 @@ window.enviarI2CWrite = function () {
     wifiAnalizador.sendData(`I2C_WRITE:${addr}:${reg}:${data}`);
 }
 
+/**
+ * Envia el comando de I2C_READ al hardware.
+ * El ESP32 solicitará datos al esclavo, detendrá momentáneamente el sniffer
+ * y enviará la respuesta por WebSocket (I2C_READ_RES:...).
+ */
 window.enviarI2CRead = function () {
     const addr = document.getElementById('i2cTargetAddr').value || "0x08";
     const reg = document.getElementById('i2cTargetReg').value || "0x00";
     const numBytes = document.getElementById('i2cReadBytes').value || "1";
     if (!wifiAnalizador || !wifiAnalizador.isConnected) return;
+
+    // Mostramos un indicador visual temporal
+    const resBox = document.getElementById('i2cReadResponse');
+    if (resBox) resBox.innerText = "Leyendo...";
+
     wifiAnalizador.sendData(`I2C_READ:${addr}:${reg}:${numBytes}`);
 }
 
+/**
+ * Envia el comando de SPI_TRANSFER al hardware.
+ * SPI es Full-Duplex, por lo que toda operación envía y recibe datos al mismo tiempo.
+ * Para leer, se suelen enviar bytes basura (0x00 o 0xFF).
+ */
 window.enviarSPITransfer = function () {
     const data = document.getElementById('spiTransferData').value;
     if (!wifiAnalizador || !wifiAnalizador.isConnected) return;
