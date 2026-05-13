@@ -136,6 +136,8 @@ void IRAM_ATTR onSCLRising();
 void IRAM_ATTR onSDAChange();
 void IRAM_ATTR onSCKChange(); 
 void IRAM_ATTR onCSChange();  
+void onI2CReceive(int numBytes);
+void onI2CRequest();
 
 Role i2cRole = ROLE_SNIFFER;
 Role spiRole = ROLE_SNIFFER;
@@ -158,16 +160,19 @@ int activeI2CReg = 0x00;
  volatile uint8_t i2cCurrentByte = 0;            // Byte que se está construyendo bit a bit
  volatile bool i2cStarted = false;               // Para pausar la captura de datos 
 volatile int i2cBitCount = 0;                    // Contador de bits para identificar si es dirección o data
- 
- // Lectura de interrupcion de registros para I2C a nivel de hardware
- #define READ_SCL_FAST ((REG_READ(GPIO_IN_REG) >> 22) & 1)
- #define READ_SDA_FAST ((REG_READ(GPIO_IN_REG) >> 21) & 1)
 
-// --- Variables de configuracion modo esclavo I2C con 4 bytes de almacenamiento---
+// --- Definiciones de lectura directa para I2C ---
+#define READ_SCL_FAST ((REG_READ(GPIO_IN_REG) >> 22) & 1)
+#define READ_SDA_FAST ((REG_READ(GPIO_IN_REG) >> 21) & 1)
+ 
+// --- Variables de configuracion modo esclavo I2C y SPI ---
+volatile uint8_t sensorMemory[256]; // 256 registros virtuales para emular el sensor
+volatile uint8_t currentRegister = 0; // Apuntador al registro actual I2C
+
 volatile bool spiSlaveMode = false;
 volatile int spiSlaveBytePtr = 0;  //indice inicio registro byte
 volatile int spiSlaveBitPtr = 0;   //indice bit
-volatile uint8_t spiSlaveBuffer[256]; //buffer 4 registros
+volatile uint8_t spiSlaveBuffer[256]; //buffer para SPI
 volatile int spiSlaveBufferSize = 0;
 
 // ****************************************************************************************
@@ -580,6 +585,11 @@ void ejecutarComando(String cmd) {
         // 1. Extraemos protocolo y rol
         String proto = getParam(cmd, 1);
         String role  = getParam(cmd, 2); //SNIFFER, MASTER, SLAVE, etc.
+
+        // Limpiamos espacios en blanco o saltos de línea basura que el WebSocket pudiera añadir
+        proto.trim();
+        role.trim();
+
         int blinks = 0;
 
         if (proto == "UART") {
@@ -598,19 +608,24 @@ void ejecutarComando(String cmd) {
             freqBlinkTarget = 0;
             digitalWrite(LED_SPI_FREC_AZUL, LOW);
 
-        } else if (proto == "I2C") {
+        }   else if (proto == "I2C") {
             // JS: CONFIG:I2C:ROL:SPEED:ADDR:REG
             activeI2CSpeed = getParam(cmd, 3).toInt();
             String addrStr = getParam(cmd, 4);
-            String regStr  = getParam(cmd, 5);
-            
             if (addrStr != "") activeI2CAddr = strtol(addrStr.c_str(), NULL, 16);
-            if (regStr != "")  activeI2CReg  = strtol(regStr.c_str(), NULL, 16);
 
             Serial.println("[CONFIG] >>> I2C Speed:" + String(activeI2CSpeed) + " Addr:0x" + String(activeI2CAddr, HEX) + " (" + role + ")");
             
             limpiarTodosLosModos();
-            startSniffingI2C(); 
+            
+            if (role == "SNIFFER" || role == "MASTER") {
+                startSniffingI2C(); 
+            } else if (role == "SLAVE") {
+                // INICIAMOS COMO SENSOR ESCLAVO FALSO
+                Wire.begin((uint8_t)activeI2CAddr);
+                Wire.onReceive(onI2CReceive);
+                Wire.onRequest(onI2CRequest);
+            }
             
             if (role != "SNIFFER") blinks = (activeI2CSpeed == 400000) ? 2 : 1;
             actualizarLedsProtocolo("I2C", blinks);
@@ -639,11 +654,12 @@ void ejecutarComando(String cmd) {
 
             // Configurar parpadeo de frecuencia SPI
             if (role != "SNIFFER") {
-                freqBlinkTarget = 1; // 1MHz
-                if (activeSPIFreq == 4000000) freqBlinkTarget = 2;
-                else if (activeSPIFreq == 8000000) freqBlinkTarget = 3;
-                else if (activeSPIFreq == 16000000) freqBlinkTarget = 4;
-                else if (activeSPIFreq == 20000000) freqBlinkTarget = 5;
+                freqBlinkTarget = 1; // 100kHz o 1MHz
+                if (activeSPIFreq >= 2000000) freqBlinkTarget = 2;
+                if (activeSPIFreq >= 4000000) freqBlinkTarget = 3;
+                if (activeSPIFreq >= 8000000) freqBlinkTarget = 4;
+                if (activeSPIFreq >= 10000000) freqBlinkTarget = 5;
+                if (activeSPIFreq >= 20000000) freqBlinkTarget = 6;
                 
                 freqBlinkCount = 0;
                 freqBlinkState = false;
@@ -692,7 +708,7 @@ void ejecutarComando(String cmd) {
         wsSend(err == 0 ? "I2C_TX_OK" : "I2C_TX_ERR");
 
         // RE-INICIALIZACIÓN CRÍTICA: El bus I2C puede resetear el modo de los pines cercanos
-        actualizarLedsProtocolo(currentProtocol, ledBlinkTarget);
+        pinMode(LED_I2C_AMARILLO, OUTPUT);
     }
 
     // SPI SLAVE EMULATION
@@ -745,6 +761,152 @@ void ejecutarComando(String cmd) {
         pinMode(18, INPUT_PULLUP); //Pull up para evitar que funcione como antena y capte ruido que dispara la interrupción de forma aleatoria.
         attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
         wsSend("SPI_TX_OK");
+    }
+       
+    // --- LLENAR MEMORIA DEL SENSOR VIRTUAL (I2C) ---
+    if (cmd.startsWith("SET_MEMORY:")) {
+        int reg = strtol(getParam(cmd, 1).c_str(), NULL, 16);
+        String dataStr = getParam(cmd, 2);
+        
+        int start = 0;
+        int ptr = reg;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0 && ptr < 256) {
+                    sensorMemory[ptr++] = (uint8_t)strtol(b.c_str(), NULL, 16);
+                }
+                start = i + 1;
+            }
+        }
+        wsSend("READY:PUERTOS_OK");
+        return;
+    }
+
+    // I2C: MAESTRO ESCRIBE
+    if (cmd.startsWith("I2C_WRITE:")) {
+        String addrStr = getParam(cmd, 1);
+        String regStr = getParam(cmd, 2);
+        String dataStr = getParam(cmd, 3);
+        
+        int addr = strtol(addrStr.c_str(), NULL, 16);
+        int reg = strtol(regStr.c_str(), NULL, 16);
+        
+        stopSniffingI2C();
+        Wire.begin(21, 22);
+        Wire.setClock(activeI2CSpeed); 
+    
+        Wire.beginTransmission(addr);
+        Wire.write(reg); 
+        
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0) Wire.write((uint8_t)strtol(b.c_str(), NULL, 16));
+                start = i + 1;
+            }
+        }
+        uint8_t err = Wire.endTransmission();
+        startSniffingI2C(); 
+        
+        if (err == 0) wsSend("I2C_RECV_BUF:" + addrStr + "," + regStr + "," + dataStr);
+        else wsSend("I2C_TX_ERR:Sin respuesta");
+        
+        pinMode(LED_I2C_AMARILLO, OUTPUT);
+    }
+
+    // I2C: MAESTRO LEE 
+    if (cmd.startsWith("I2C_READ:")) {
+        String addrStr = getParam(cmd, 1);
+        String regStr = getParam(cmd, 2);
+        int numBytes = getParam(cmd, 3).toInt();
+        
+        int addr = strtol(addrStr.c_str(), NULL, 16);
+        int reg = strtol(regStr.c_str(), NULL, 16);
+        
+        stopSniffingI2C();
+        Wire.begin(21, 22);
+        Wire.setClock(activeI2CSpeed); 
+        
+        Wire.beginTransmission(addr);
+        Wire.write(reg);
+        Wire.endTransmission(false); 
+        
+        Wire.requestFrom((uint16_t)addr, (uint8_t)numBytes, true);
+        
+        String readData = "";
+        char hexTemp[4];
+        while(Wire.available()) {
+            sprintf(hexTemp, "%02X,", Wire.read());
+            readData += hexTemp;
+        }
+        startSniffingI2C();
+        
+        wsSend("I2C_RECV_BUF:" + addrStr + "," + regStr + "," + readData);
+        wsSend("I2C_READ_RES:" + readData);
+        pinMode(LED_I2C_AMARILLO, OUTPUT);
+    }
+
+    // SPI: ESCLAVO EMULADO
+    if (cmd.startsWith("SPI_SLAVE_ON:")) {
+        String dataStr = getParam(cmd, 1);
+        spiSlaveBufferSize = 0;
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0 && spiSlaveBufferSize < 256) {
+                    spiSlaveBuffer[spiSlaveBufferSize++] = (uint8_t)strtol(b.c_str(), NULL, 16);
+                }
+                start = i + 1;
+            }
+        }
+        pinMode(19, OUTPUT); // MISO
+        spiSlaveMode = true;
+        spiSlaveBytePtr = 0;
+        spiSlaveBitPtr = 0;
+        wsSend("READY:PUERTOS_OK");
+    }
+
+    // SPI: MAESTRO TRANSFERENCIA 
+    if (cmd.startsWith("SPI_TRANSFER:")) {
+        String dataStr = getParam(cmd, 1);
+        
+        detachInterrupt(digitalPinToInterrupt(18));
+        detachInterrupt(digitalPinToInterrupt(5));
+        
+        SPI.begin(18, 19, 23, 5); 
+        SPI.beginTransaction(SPISettings(activeSPIFreq, MSBFIRST, spi_modes[activeSPIMode]));
+        digitalWrite(5, LOW);
+        
+        String bufferGraph = "";
+        char rxHex[4];
+        char txHex[4];
+        
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0) {
+                    uint8_t txByte = (uint8_t)strtol(b.c_str(), NULL, 16);
+                    uint8_t rxByte = SPI.transfer(txByte);
+                    
+                    sprintf(txHex, "%02X,", txByte);
+                    sprintf(rxHex, "%02X,", rxByte);
+                    bufferGraph += String(txHex) + String(rxHex);
+                }
+                start = i + 1;
+            }
+        }
+        digitalWrite(5, HIGH);
+        SPI.end();
+        
+        attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
+        attachInterrupt(digitalPinToInterrupt(5), onCSChange, CHANGE);
+        
+        wsSend("SPI_RECV_BUF:" + bufferGraph);
+        pinMode(LED_SPI_AZUL, OUTPUT);
     }
 }
 
@@ -875,4 +1037,21 @@ void IRAM_ATTR onSCKChange() {
             }
         }
     }
+}
+
+// ISR-I2C Hardware: Se ejecuta cuando el Maestro I2C nos ESCRIBE
+void onI2CReceive(int numBytes) {
+    if (Wire.available()) {
+        currentRegister = Wire.read(); // El primer byte es la dirección del registro
+        while(Wire.available()) {
+            sensorMemory[currentRegister] = Wire.read(); // Guardamos en memoria
+            currentRegister++;
+        }
+    }
+}
+
+// ISR-I2C Hardware: Se ejecuta cuando el Maestro I2C nos LEE
+void onI2CRequest() {
+    Wire.write(sensorMemory[currentRegister]); // Respondemos con lo que hay en memoria
+    currentRegister++;
 }

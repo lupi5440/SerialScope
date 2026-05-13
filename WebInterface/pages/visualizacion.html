@@ -135,6 +135,7 @@
                     <optgroup label="I²C">
                         <option value="I2C">I²C (Sniffing)</option>
                         <option value="I2C_MASTER">I²C (Maestro Activo)</option>
+                        <option value="I2C_SLAVE">I²C (Esclavo Emulado)</option>
                     </optgroup>
                     <optgroup label="SPI">
                         <option value="SPI">SPI (Sniffing)</option>
@@ -158,20 +159,79 @@
                     </span>
                 </div>
 
-                <!-- Los controles de Master/Slave ahora se inyectan dinámicamente o se muestran aquí solo si es necesario -->
                 <div id="active-modes-controls" class="mt-3" style="display: none;">
-                    <div id="slave-memory-config" class="mb-3">
-                        <label class="small fw-bold text-muted">Datos de Respuesta Esclavo (HEX)</label>
-                        <input type="text" id="slaveDataInput" class="form-control form-control-sm border-purple"
-                            placeholder="FF,AA,00..." value="DE,AD,BE,EF">
-                    </div>
                     <div id="master-send-config">
-                        <label class="small fw-bold text-muted">Enviar comando al bus</label>
-                        <div class="input-group input-group-sm">
-                            <input type="text" id="masterDataInput" class="form-control border-purple"
-                                placeholder="Datos (HEX o Texto)">
-                            <button class="btn btn-purple" onclick="enviarMensajeActivo()"><i class="bi bi-send"></i>
-                                Enviar</button>
+                        <label class="small fw-bold text-muted mb-2">Operaciones de Maestro</label>
+
+                        <!-- Controles I2C Maestro -->
+                        <div id="i2c-master-controls" style="display: none;">
+                            <ul class="nav nav-pills nav-fill mb-3" id="i2c-master-tabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active py-1" id="tab-i2c-write" data-bs-toggle="pill"
+                                        data-bs-target="#pane-i2c-write" type="button" role="tab"
+                                        style="font-size: 0.85rem;">Escribir a Esclavo</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link py-1" id="tab-i2c-read" data-bs-toggle="pill"
+                                        data-bs-target="#pane-i2c-read" type="button" role="tab"
+                                        style="font-size: 0.85rem;">Leer de Esclavo</button>
+                                </li>
+                            </ul>
+
+                            <div class="row g-2 mb-3">
+                                <div class="col-6">
+                                    <input type="text" id="i2cTargetAddr"
+                                        class="form-control form-control-sm border-purple fw-bold text-center"
+                                        placeholder="Addr (0x08)">
+                                </div>
+                                <div class="col-6">
+                                    <input type="text" id="i2cTargetReg"
+                                        class="form-control form-control-sm border-purple fw-bold text-center"
+                                        placeholder="Reg (0x00)">
+                                </div>
+                            </div>
+
+                            <div class="tab-content" id="i2c-master-tabContent">
+                                <!-- Pestaña Escribir -->
+                                <div class="tab-pane fade show active" id="pane-i2c-write" role="tabpanel">
+                                    <div class="input-group input-group-sm mb-1">
+                                        <input type="text" id="i2cWriteData" class="form-control border-purple"
+                                            placeholder="Datos a escribir (HEX)">
+                                        <button class="btn btn-purple" onclick="enviarI2CWrite()"><i
+                                                class="bi bi-pencil"></i> Escribir</button>
+                                    </div>
+                                    <small class="text-muted" style="font-size: 0.7rem;">Se enviará a la dirección y
+                                        registro especificados arriba.</small>
+                                </div>
+                                <!-- Pestaña Leer -->
+                                <div class="tab-pane fade" id="pane-i2c-read" role="tabpanel">
+                                    <div class="input-group input-group-sm mb-2">
+                                        <span class="input-group-text bg-light text-muted border-purple"
+                                            style="font-size: 0.8rem;">Bytes:</span>
+                                        <input type="number" id="i2cReadBytes" class="form-control border-purple"
+                                            placeholder="1" value="1">
+                                        <button class="btn btn-outline-purple fw-bold" onclick="enviarI2CRead()"><i
+                                                class="bi bi-download"></i> Solicitar</button>
+                                    </div>
+                                    <div class="p-2 bg-white border border-purple rounded"
+                                        style="background-color: #fcfaff !important;">
+                                        <label class="small fw-bold text-purple mb-1">Respuesta del Esclavo:</label>
+                                        <div id="i2cReadResponse"
+                                            class="font-monospace small text-dark fw-bold text-wrap"
+                                            style="min-height: 20px;">Esperando lectura...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Controles SPI Maestro -->
+                        <div id="spi-master-controls" style="display: none;">
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="spiTransferData" class="form-control border-purple"
+                                    placeholder="Datos a transferir (HEX)">
+                                <button class="btn btn-purple" onclick="enviarSPITransfer()"><i
+                                        class="bi bi-arrow-left-right"></i> Transferir</button>
+                            </div>
                         </div>
                     </div>
                 </div>

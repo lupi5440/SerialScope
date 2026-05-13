@@ -403,6 +403,11 @@ export function procesarEntradaAnalizador(linea) {
         marcarProxySincronizado();
         return;
     }
+    if (linea.startsWith("I2C_READ_RES:")) {
+        const resBox = document.getElementById('i2cReadResponse');
+        if (resBox) resBox.innerText = linea.substring(13) || "Sin datos";
+        return;
+    }
     if (linea.includes("I2C_TX_OK")) { alert("✅ I2C: Mensaje enviado."); return; }
     if (linea.includes("SPI_TX_OK")) { alert("✅ SPI: Mensaje enviado."); return; }
 
@@ -532,8 +537,12 @@ export function actualizarConfiguracion(selectId) {
     // 1. Manejo de Controles de Datos (Master/Slave)
     if (activeControls) {
         activeControls.style.display = (role === 'SNIFFER' || proto === 'UART' || (proto === 'I2C' && role === 'SLAVE')) ? 'none' : 'block';
-        document.getElementById('slave-memory-config').style.display = (role === 'SLAVE' && proto === 'SPI') ? 'block' : 'none';
         document.getElementById('master-send-config').style.display = (role === 'MASTER') ? 'block' : 'none';
+        
+        if (role === 'MASTER') {
+            document.getElementById('i2c-master-controls').style.display = (proto === 'I2C') ? 'block' : 'none';
+            document.getElementById('spi-master-controls').style.display = (proto === 'SPI') ? 'block' : 'none';
+        }
     }
 
     // 2. Configuración Específica por Protocolo
@@ -565,6 +574,7 @@ export function actualizarConfiguracion(selectId) {
 
     } else if (proto === 'I2C') {
         const isSniffer = (role === 'SNIFFER');
+        const isSlave = (role === 'SLAVE');
 
         if (isSniffer) {
             configDiv.innerHTML = `<div class="text-center p-3 text-warning opacity-75">
@@ -574,21 +584,29 @@ export function actualizarConfiguracion(selectId) {
         } else {
             configDiv.innerHTML = `
                 <div class="row g-3 py-2">
+                    ${isSlave ? `
                     <div class="col-6">
-                        <label class="small fw-bold text-muted mb-1">Dirección (HEX)</label>
+                        <label class="small fw-bold text-muted mb-1">Dirección del Esclavo (HEX)</label>
                         <input type="text" id="i2cAddr" class="form-control form-control-sm bg-light border-0" value="0x08" oninput="marcarProxyDesincronizado()">
                     </div>
                     <div class="col-6">
-                        <label class="small fw-bold text-muted mb-1">Registro (HEX)</label>
+                        <label class="small fw-bold text-muted mb-1">Registro Inicial (HEX)</label>
                         <input type="text" id="i2cReg" class="form-control form-control-sm bg-light border-0" value="0x00" oninput="marcarProxyDesincronizado()">
                     </div>
                     <div class="col-12">
-                        <label class="small fw-bold text-muted mb-1">Velocidad de Bus</label>
+                        <label class="small fw-bold text-muted mb-1">Datos de Respuesta Esclavo (HEX)</label>
+                        <input type="text" id="slaveDataInput" class="form-control form-control-sm border-purple"
+                            placeholder="FF,AA,00..." value="DE,AD,BE,EF" oninput="marcarProxyDesincronizado()">
+                        <small class="text-muted" style="font-size:0.7rem;">Estos datos se almacenarán en el registro especificado y se enviarán cuando el maestro solicite lectura.</small>
+                    </div>` : `
+                    <div class="col-12">
+                        <label class="small fw-bold text-muted mb-1">Velocidad de Bus (Maestro)</label>
                         <select id="i2cSpeed" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
                             <option value="100000">Standard Mode (100 kHz)</option>
                             <option value="400000">Fast Mode (400 kHz)</option>
+                            <option value="1000000">Fast Mode Plus (1 MHz)</option>
                         </select>
-                    </div>
+                    </div>`}
                 </div>`;
         }
 
@@ -603,6 +621,7 @@ export function actualizarConfiguracion(selectId) {
 
     } else if (proto === 'SPI') {
         const isSniffer = (role === 'SNIFFER');
+        const isSlave = (role === 'SLAVE');
 
         if (isSniffer) {
             configDiv.innerHTML = `<div class="text-center p-3 text-primary opacity-75">
@@ -621,16 +640,24 @@ export function actualizarConfiguracion(selectId) {
                             <option value="3">Modo 3 (1,1)</option>
                         </select>
                     </div>
+                    ${!isSlave ? `
                     <div class="col-12">
                         <label class="small fw-bold text-muted mb-1">Frecuencia de Reloj</label>
                         <select id="spiFreq" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
-                            <option value="1000000">1 MHz</option>
-                            <option value="4000000">4 MHz</option>
+                            <option value="100000">100 kHz (Lento / Inicialización)</option>
+                            <option value="1000000" selected>1 MHz (Seguro)</option>
+                            <option value="2000000">2 MHz</option>
+                            <option value="4000000">4 MHz (Estándar Arduino)</option>
                             <option value="8000000">8 MHz</option>
-                            <option value="16000000">16 MHz</option>
-                            <option value="20000000" selected>20 MHz</option>
+                            <option value="10000000">10 MHz (Rápido)</option>
+                            <option value="20000000">20 MHz (Muy Rápido - Límite cables)</option>
                         </select>
-                    </div>
+                    </div>` : `
+                    <div class="col-12">
+                        <label class="small fw-bold text-muted mb-1">Datos de Respuesta Esclavo (HEX)</label>
+                        <input type="text" id="slaveDataInput" class="form-control form-control-sm border-purple"
+                            placeholder="FF,AA,00..." value="DE,AD,BE,EF" oninput="marcarProxyDesincronizado()">
+                    </div>`}
                 </div>`;
         }
 
@@ -662,7 +689,6 @@ export function actualizarConfiguracion(selectId) {
 
 window.toggleRoleUI = function () {
     const role = document.getElementById('deviceRoleSelect').value;
-    document.getElementById('slave-memory-config').style.display = (role === 'SLAVE') ? 'block' : 'none';
     document.getElementById('master-send-config').style.display = (role === 'MASTER') ? 'block' : 'none';
 
     if (role === 'SLAVE') {
@@ -671,19 +697,26 @@ window.toggleRoleUI = function () {
     }
 }
 
-window.enviarMensajeActivo = function () {
-    const rawVal = document.getElementById('protocoloSelect').value;
-    const proto = rawVal.split('_')[0];
-    const data = document.getElementById('masterDataInput').value;
-
+window.enviarI2CWrite = function () {
+    const addr = document.getElementById('i2cTargetAddr').value || "0x08";
+    const reg = document.getElementById('i2cTargetReg').value || "0x00";
+    const data = document.getElementById('i2cWriteData').value;
     if (!wifiAnalizador || !wifiAnalizador.isConnected) return;
+    wifiAnalizador.sendData(`I2C_WRITE:${addr}:${reg}:${data}`);
+}
 
-    if (proto === 'I2C') {
-        const addr = prompt("Dirección I2C del Esclavo (ej: 0x3C)", "0x08");
-        if (addr) wifiAnalizador.sendData(`I2C_SEND:${addr}:${data}`);
-    } else if (proto === 'SPI') {
-        wifiAnalizador.sendData(`SPI_SEND:${data}`);
-    }
+window.enviarI2CRead = function () {
+    const addr = document.getElementById('i2cTargetAddr').value || "0x08";
+    const reg = document.getElementById('i2cTargetReg').value || "0x00";
+    const numBytes = document.getElementById('i2cReadBytes').value || "1";
+    if (!wifiAnalizador || !wifiAnalizador.isConnected) return;
+    wifiAnalizador.sendData(`I2C_READ:${addr}:${reg}:${numBytes}`);
+}
+
+window.enviarSPITransfer = function () {
+    const data = document.getElementById('spiTransferData').value;
+    if (!wifiAnalizador || !wifiAnalizador.isConnected) return;
+    wifiAnalizador.sendData(`SPI_TRANSFER:${data}`);
 }
 
 function actualizarModoActivoHardware() {
@@ -692,8 +725,13 @@ function actualizarModoActivoHardware() {
     const role = rawVal.split('_')[1] || 'SNIFFER';
 
     if (role === 'SLAVE') {
-        const memory = document.getElementById('slaveDataInput').value;
-        wifiAnalizador.sendData(`${proto}_SLAVE_ON:${memory}`);
+        const memory = document.getElementById('slaveDataInput')?.value || "DE,AD,BE,EF";
+        if (proto === 'SPI') {
+            wifiAnalizador.sendData(`${proto}_SLAVE_ON:${memory}`);
+        } else if (proto === 'I2C') {
+            const reg = document.getElementById('i2cReg')?.value || "00";
+            wifiAnalizador.sendData(`SET_MEMORY:${reg}:${memory}`);
+        }
     } else if (role === 'SNIFFER') {
         enviarConfiguracionFisica();
     }
