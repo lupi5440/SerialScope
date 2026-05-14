@@ -446,6 +446,21 @@ export function procesarEntradaAnalizador(linea) {
                 const mosiClean = mosiHex.toUpperCase().startsWith('0X') ? mosiHex.toUpperCase() : "0x" + mosiHex.toUpperCase();
                 const misoClean = misoHex.toUpperCase().startsWith('0X') ? misoHex.toUpperCase() : "0x" + misoHex.toUpperCase();
 
+                // NUEVO: Si estamos en modo Maestro, actualizar también el recuadro de resultados
+                const currentProtocol = document.getElementById('protocoloSelect')?.value || "";
+                if (currentProtocol === 'SPI_MASTER') {
+                    const resBox = document.getElementById('spiMasterResponse');
+                    const container = document.getElementById('spi-master-result-container');
+                    if (container) container.style.display = 'block';
+                    
+                    // Acumular los bytes MISO si es una ráfaga
+                    if (i === 0) {
+                        if (resBox) resBox.innerText = misoClean;
+                    } else {
+                        if (resBox) resBox.innerText += " " + misoClean;
+                    }
+                }
+
                 // 1. Gráfica Sincronizada
                 const mosiSignals = generarBits("SPI", [mosiClean]);
                 const misoSignals = generarBits("SPI", [misoClean]);
@@ -731,8 +746,20 @@ window.enviarI2CRead = function () {
  * Para leer, se suelen enviar bytes basura (0x00 o 0xFF).
  */
 window.enviarSPITransfer = function () {
-    const data = document.getElementById('spiTransferData').value;
+    let data = document.getElementById('spiTransferData').value;
     if (!wifiAnalizador || !wifiAnalizador.isConnected) return;
+
+    // NORMALIZACIÓN: Reemplazar espacios por comas, quitar 0x y limpiar duplicados
+    data = data.replace(/0x/g, ''); // Quitar 0x
+    data = data.replace(/[\s,]+/g, ','); // Convertir cualquier mezcla de espacios/comas a una sola coma
+    data = data.replace(/^,|,$/g, ''); // Quitar comas al inicio o final
+
+    console.log("Enviando transferencia SPI normalizada:", data);
+    
+    // Limpiar respuesta anterior antes de enviar
+    const resBox = document.getElementById('spiMasterResponse');
+    if (resBox) resBox.innerText = "Transfiriendo...";
+
     wifiAnalizador.sendData(`SPI_TRANSFER:${data}`);
 }
 

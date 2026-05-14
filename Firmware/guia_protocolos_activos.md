@@ -88,12 +88,46 @@ Se usa para que el Visualizador finja ser un sensor y responda al Maestro (ESP32
 ## ⚡ Protocolo SPI
 
 ### 1. Modo Maestro (Visualizador)
-- **Operación:** El Visualizador genera el reloj (SCK) y selecciona al esclavo (CS).
-- **Transferencia:** Envías bytes por MOSI y recibes simultáneamente por MISO.
-- **Configuración típica:** Modo 0, Frecuencia 1MHz.
 
-### 2. Modo Esclavo (Visualizador)
-- **Operación:** El Visualizador espera a que el Maestro (ESP32 Pruebas) baje el pin CS.
-- **Respuesta:** Debes definir previamente en la web qué bytes quieres enviar de vuelta (Buffer de respuesta).
-- **Ejemplo MAX6675:** Para emular este sensor, configura el esclavo para enviar 2 bytes que sigan el formato del termopar.
+**IMPORTANTE**: Se debe desconectar del paralelo el maestro del sensor , si se mantiene conectado el Visualizador se puede ver afectado y no funcionara correctamente.
+
+**Operación:** El Visualizador genera el reloj (SCK) y selecciona al esclavo (CS).
+**Transferencia:** Envías bytes por MOSI y recibes simultáneamente por MISO.
+
+#### Configuración MAX6675
+
+**Configuración**:
+   - Selecciona **SPI (Maestro Activo)**.
+   - **Modo**: Selecciona el modo del sensor (Modo 0 es el estándar para MAX6675).
+   - **Frecuencia**: Selecciona la velocidad (ej: 1 MHz).
+   - Haz clic en **Aplicar al Hardware**. El LED Azul del ESP32 parpadeará indicando la velocidad.
+**Transferencia de Datos**:
+   - En el cuadro "Datos a transferir", escribe los bytes en HEX.
+   - **Para leer el Termopar**: Escribe `00 00`. 
+     - *¿Por qué?* Porque el sensor entrega **16 bits** de datos. Cada `00` genera 8 pulsos de reloj. 2 bytes = 16 bits exactos.
+     - *¿Puedo pedir más?* No. El sensor solo tiene 16 bits de memoria por lectura. Si pides más (ej: `00 00 00`), recibirás ceros después del segundo byte.
+   - Haz clic en **Transferir**.
+
+**Resultado y Conversión (MISO)**:
+Al transferir, recibirás algo como `02, B0`.
+
+**¿Cómo convertir `02 B0` a Grados Celsius?**
+1. **Unir los bytes**: `0x02` y `0xB0` forman `0x02B0`.
+2. **Eliminar bits de estado**: El sensor usa los últimos 3 bits para diagnóstico. Debes desplazar el valor 3 bits a la derecha:
+   - En calculadora: `0x02B0 >> 3 = 86` (decimal).
+3. **Multiplicar por resolución**: Cada unidad equivale a 0.25°C.
+   - `86 * 0.25 = 21.5 °C`.
+
+### 2. Modo Esclavo (Visualizador) - Emulación de Sensor
+
+Este modo sirve para que el Visualizador finja ser un sensor y responda a otor maestro SPI.
+
+#### Caso: Emular Termopar MAX6675
+
+**Configuración en Visualizador (Esclavo)**:
+   - Selecciona **SPI (Esclavo)**.
+   - **Datos de Respuesta (MISO)**: Escribe los bytes que quieres que el Maestro reciba.
+     - *Ejemplo*: Escribe `02 B0` (simula 43 °C) o `02 38` (simula 35.50 °C).
+   - Haz clic en **Aplicar al Hardware**. El Visualizador ahora está "en espera".
+
 

@@ -512,9 +512,15 @@ void limpiarTodosLosModos() {
     spiBitCnt = 0;
     i2cBitCount = 0;
     
+    // Limpiar el estado de los LEDs de protocolo
+    digitalWrite(LED_UART_ROJO, LOW);
+    digitalWrite(LED_I2C_AMARILLO, LOW);
+    digitalWrite(LED_SPI_AZUL, LOW);
+    digitalWrite(LED_STATUS_VERDE, LOW);
+    digitalWrite(LED_SPI_FREC_AZUL, LOW);
+    
     // Apagar parpadeo de frecuencia del SPI
     freqBlinkTarget = 0;
-    digitalWrite(LED_SPI_FREC_AZUL, LOW);
 }
 
 // Función auxiliar para extraer parámetros de un comando (Formato: CMD:P1:P2:P3)
@@ -652,10 +658,10 @@ void ejecutarComando(String cmd) {
             if (role != "SNIFFER") blinks = activeSPIMode + 1;
             actualizarLedsProtocolo("SPI", blinks);
 
-            // Configurar parpadeo de frecuencia SPI
-            if (role != "SNIFFER") {
-                freqBlinkTarget = 1; // 100kHz o 1MHz
-                if (activeSPIFreq >= 2000000) freqBlinkTarget = 2;
+            // Configurar parpadeo de frecuencia SPI (SOLO SI ES MAESTRO)
+            if (role == "MASTER") {
+                freqBlinkTarget = 1; 
+                if (activeSPIFreq >= 1000000) freqBlinkTarget = 2;
                 if (activeSPIFreq >= 4000000) freqBlinkTarget = 3;
                 if (activeSPIFreq >= 8000000) freqBlinkTarget = 4;
                 if (activeSPIFreq >= 10000000) freqBlinkTarget = 5;
@@ -666,6 +672,7 @@ void ejecutarComando(String cmd) {
                 freqResting = false;
                 lastFreqLedTime = millis();
             } else {
+                // En Esclavo o Sniffer, el LED azul de frecuencia se apaga
                 freqBlinkTarget = 0;
                 digitalWrite(LED_SPI_FREC_AZUL, LOW);
             }
@@ -879,27 +886,78 @@ void ejecutarComando(String cmd) {
                 start = i + 1;
             }
         }
-        pinMode(19, OUTPUT); // MISO
+        
+        // ELIMINAMOS pinMode(19, OUTPUT) de aquí. 
+        // Ahora el MISO se habilita y deshabilita dinámicamente en la interrupción onCSChange
         spiSlaveMode = true;
         spiSlaveBytePtr = 0;
         spiSlaveBitPtr = 0;
         wsSend("READY:PUERTOS_OK");
     }
 
+    // SPI: MAESTRO SEND (Solo enviar, sin importar lo que reciba)
+    if (cmd.startsWith("SPI_SEND:")) {
+        int f = cmd.indexOf(':');
+        String dataStr = cmd.substring(f+1);
+        
+        // 1. Pausamos TODO el sniffer (SCK y CS)
+        detachInterrupt(digitalPinToInterrupt(18));
+        detachInterrupt(digitalPinToInterrupt(5));
+        
+        // 2. Usamos SPI_Sensing y liberamos CS (-1)
+        SPI_Sensing.begin(18, 19, 23, -1); 
+        SPI_Sensing.beginTransaction(SPISettings(activeSPIFreq, MSBFIRST, spi_modes[activeSPIMode]));
+        
+        // 3. Tomamos control manual del CS
+        pinMode(5, OUTPUT);
+        digitalWrite(5, LOW);
+        
+        int start = 0;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0) {
+                    SPI_Sensing.transfer((uint8_t)strtol(b.c_str(), NULL, 16));
+                }
+                start = i + 1;
+            }
+        }
+        
+        // 4. Terminamos transferencia cerrando todo en orden
+        digitalWrite(5, HIGH);
+        SPI_Sensing.endTransaction(); // Libera el RTOS
+        SPI_Sensing.end();            // Apaga el hardware
+        
+        // 5. Regresamos los pines a modo lectura segura para el sniffer
+        pinMode(18, INPUT_PULLUP); 
+        pinMode(5, INPUT_PULLUP);
+        
+        // Reactivamos interrupciones
+        attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
+        attachInterrupt(digitalPinToInterrupt(5), onCSChange, CHANGE);
+        
+        wsSend("SPI_TX_OK");
+    }
+
     // SPI: MAESTRO TRANSFERENCIA 
     if (cmd.startsWith("SPI_TRANSFER:")) {
         String dataStr = getParam(cmd, 1);
         
+        // Pausamos el sniffer temporalmente
         detachInterrupt(digitalPinToInterrupt(18));
         detachInterrupt(digitalPinToInterrupt(5));
         
-        SPI.begin(18, 19, 23, 5); 
-        SPI.beginTransaction(SPISettings(activeSPIFreq, MSBFIRST, spi_modes[activeSPIMode]));
+        // 1. Usamos el objeto SPI_Sensing (no el global) y dejamos CS (-1) libre
+        SPI_Sensing.begin(18, 19, 23, -1); 
+        SPI_Sensing.beginTransaction(SPISettings(activeSPIFreq, MSBFIRST, spi_modes[activeSPIMode]));
+        
+        // 2. Configuramos el CS explícitamente como SALIDA
+        pinMode(5, OUTPUT);
         digitalWrite(5, LOW);
         
         String bufferGraph = "";
-        char rxHex[4];
-        char txHex[4];
+        char rxHex[6]; // Margen extra de seguridad
+        char txHex[6];
         
         int start = 0;
         for (int i = 0; i <= dataStr.length(); i++) {
@@ -907,18 +965,27 @@ void ejecutarComando(String cmd) {
                 String b = dataStr.substring(start, i);
                 if (b.length() > 0) {
                     uint8_t txByte = (uint8_t)strtol(b.c_str(), NULL, 16);
-                    uint8_t rxByte = SPI.transfer(txByte);
+                    uint8_t rxByte = SPI_Sensing.transfer(txByte); // Usamos SPI_Sensing
                     
-                    sprintf(txHex, "%02X,", txByte);
-                    sprintf(rxHex, "%02X,", rxByte);
+                    // snprintf es más seguro contra desbordamientos que sprintf
+                    snprintf(txHex, sizeof(txHex), "%02X,", txByte);
+                    snprintf(rxHex, sizeof(rxHex), "%02X,", rxByte);
                     bufferGraph += String(txHex) + String(rxHex);
                 }
                 start = i + 1;
             }
         }
-        digitalWrite(5, HIGH);
-        SPI.end();
         
+        // 3. Terminamos transferencia en el orden CORRECTO
+        digitalWrite(5, HIGH);
+        SPI_Sensing.endTransaction(); // ¡VITAL! Libera el candado del RTOS
+        SPI_Sensing.end();            // Apaga el hardware
+        
+        // 4. Regresamos los pines a modo lectura para protegerlos
+        pinMode(18, INPUT_PULLUP);
+        pinMode(5, INPUT_PULLUP);
+        
+        // Reactivamos las interrupciones del sniffer
         attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
         attachInterrupt(digitalPinToInterrupt(5), onCSChange, CHANGE);
         
@@ -986,6 +1053,12 @@ void startSniffingI2C() {
 void IRAM_ATTR onCSChange() {
     if (READ_CS_FAST == 0) {
         // --- INICIA TRANSMISIÓN (CS BAJA) ---
+        
+        // 1. Tomamos control del pin MISO (Lo convertimos en Salida) dinámicamente
+        if (spiSlaveMode) {
+            REG_WRITE(GPIO_ENABLE_W1TS_REG, (1 << 19)); 
+        }
+
         // Modos 0 y 2 (CPHA = 0) necesitan precargar el primer bit ANTES del reloj
         if ((activeSPIMode == 0 || activeSPIMode == 2) && spiSlaveMode && spiSlaveBufferSize > 0) {
             uint8_t byteActual = spiSlaveBuffer[spiSlaveBytePtr];
@@ -998,6 +1071,12 @@ void IRAM_ATTR onCSChange() {
         }
     } else {
         // --- TERMINA TRANSMISIÓN (CS SUBE) ---
+        
+        // 1. Liberamos el pin MISO (Lo regresamos a Entrada / High-Z) para no bloquear el bus
+        if (spiSlaveMode) {
+            REG_WRITE(GPIO_ENABLE_W1TC_REG, (1 << 19)); 
+        }
+
         // Reseteamos contadores para el siguiente paquete
         spiBitCnt = 0; 
         spiByterx = 0;
