@@ -182,12 +182,12 @@
                                 <div class="col-6">
                                     <input type="text" id="i2cTargetAddr"
                                         class="form-control form-control-sm border-purple fw-bold text-center"
-                                        placeholder="Addr (0x08)">
+                                        placeholder="Addr (0x48 o 48)">
                                 </div>
                                 <div class="col-6">
                                     <input type="text" id="i2cTargetReg"
                                         class="form-control form-control-sm border-purple fw-bold text-center"
-                                        placeholder="Reg (0x00)">
+                                        placeholder="Reg (0x03 o 03)">
                                 </div>
                             </div>
 
@@ -196,7 +196,7 @@
                                 <div class="tab-pane fade show active" id="pane-i2c-write" role="tabpanel">
                                     <div class="input-group input-group-sm mb-1">
                                         <input type="text" id="i2cWriteData" class="form-control border-purple"
-                                            placeholder="Datos a escribir (HEX)">
+                                            placeholder="Bytes en HEX separados por comas (Ej: 28, 00)">
                                         <button class="btn btn-purple" onclick="enviarI2CWrite()"><i
                                                 class="bi bi-pencil"></i> Escribir</button>
                                     </div>
@@ -205,7 +205,7 @@
                                 </div>
                                 <!-- Pestaña Leer -->
                                 <div class="tab-pane fade" id="pane-i2c-read" role="tabpanel">
-                                    <div class="input-group input-group-sm mb-2">
+                                    <div class="input-group input-group-sm mb-2 mt-2">
                                         <span class="input-group-text bg-light text-muted border-purple"
                                             style="font-size: 0.8rem;">Bytes:</span>
                                         <input type="number" id="i2cReadBytes" class="form-control border-purple"

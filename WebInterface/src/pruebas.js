@@ -20,6 +20,10 @@ class BLEProxy {
         this.buffer = "";
     }
 
+    get isConnected() {
+        return this.device && this.device.gatt.connected;
+    }
+
     async connect() {
         if (!navigator.bluetooth) {
             alert('La Web Bluetooth API no está soportada. Usa Chrome.');
@@ -108,10 +112,16 @@ class BLEProxy {
     }
 
     async sendData(data) {
-        if (!this.rxCharacteristic) return;
+        if (!this.rxCharacteristic) {
+            this.handleDisconnect();
+            return;
+        }
         try {
             await this.rxCharacteristic.writeValue(this.encoder.encode(data + "\n"));
-        } catch (error) { console.error("Error envío:", error); }
+        } catch (error) { 
+            console.error("Error envío (posible desconexión):", error); 
+            this.handleDisconnect(); // Forzar actualización de UI si falla el envío
+        }
     }
 
     async disconnect() {
@@ -157,8 +167,10 @@ export function conectarEmulador() {
 
     // Disparador de Pérdida de Enlace o apagado involuntario
     bleEmulador.onDisconnect = () => {
-        statusEl.innerText = "DESCONECTADO";
-        statusEl.className = "badge bg-secondary mb-3 p-2 px-3";
+        if (statusEl) {
+            statusEl.innerText = "DESCONECTADO";
+            statusEl.className = "badge bg-danger mb-3 p-2 px-3 animate__animated animate__pulse animate__infinite";
+        }
         if (btnConectar) {
             btnConectar.disabled = false;
             btnConectar.innerHTML = `<i class="bi bi-link-45deg"></i> Conectar Master`;
@@ -371,15 +383,47 @@ export function cambiarVistaConfig() {
         if (profile === "TMP") {
             paramsHTML += `
             <div class="p-3 bg-white border border-success border-opacity-25 rounded-4 shadow-sm animate__animated animate__fadeInLeft mt-2">
-                <div class="small fw-bold text-success mb-2"><i class="bi bi-pin-map-fill me-1"></i> Configuración Pin ADD0</div>
-                <div class="row g-2 text-center small">
-                    <div class="col-6 border-end border-success border-opacity-10">
-                        <div class="text-muted" style="font-size: 0.7rem;">ADD0 → GND</div>
-                        <div class="fw-bold font-monospace text-success">0x48</div>
+                <div class="small fw-bold text-success mb-2"><i class="bi bi-pin-map-fill me-1"></i> Mapa de Registros TMP102</div>
+                <div class="row g-2 small text-muted">
+                    <div class="col-6 border-end">
+                        <div class="fw-bold text-dark">0x00:</div> Temp. (R)
                     </div>
                     <div class="col-6">
-                        <div class="text-muted" style="font-size: 0.7rem;">ADD0 → VCC</div>
-                        <div class="fw-bold font-monospace text-success">0x49</div>
+                        <div class="fw-bold text-dark">0x01:</div> Config (R/W)
+                    </div>
+                    <div class="col-6 border-end">
+                        <div class="fw-bold text-dark">0x03:</div> Alarma (R/W)
+                    </div>
+                    <div class="col-6">
+                        <div class="fw-bold text-dark">0x48:</div> ADD0 → GND
+                    </div>
+                    <div class="col-6 border-end">
+                        <div class="fw-bold text-dark">0x49:</div> ADD0 → VCC
+                    </div>
+                    <div class="col-12 border-top pt-1 mt-1" style="font-size: 0.65rem;">
+                        <i class="bi bi-info-circle"></i> Reg 0x01: Ajusta resolución y ahorro de energía.
+                    </div>
+                </div>
+            </div>`;
+        } else if (profile === "BMP180") {
+            paramsHTML += `
+            <div class="p-3 bg-white border border-success border-opacity-25 rounded-4 shadow-sm animate__animated animate__fadeInLeft mt-2">
+                <div class="small fw-bold text-success mb-2"><i class="bi bi-pin-map-fill me-1"></i> Mapa de Registros BMP180</div>
+                <div class="row g-2 small text-muted">
+                    <div class="col-6 border-end">
+                        <div class="fw-bold text-dark">0xF4:</div> Control (W)
+                    </div>
+                    <div class="col-6">
+                        <div class="fw-bold text-dark">0xF6:</div> Datos (R)
+                    </div>
+                    <div class="col-12 border-top pt-1 mt-1">
+                        <div class="fw-bold text-dark d-inline">0xAA..BF:</div> Calib. (22 bytes)
+                    </div>
+                    <div class="col-12 mt-1" style="font-size: 0.65rem;">
+                        <i class="bi bi-info-circle"></i> Escribir 0x2E en 0xF4 para iniciar lectura.
+                    </div>
+                    <div class="col-12" style="font-size: 0.65rem;">
+                        <i class="bi bi-info-circle"></i> Calib: Parámetros de fábrica para corregir error.
                     </div>
                 </div>
             </div>`;
@@ -724,7 +768,7 @@ export function conectarDestinoUART() {
 
     bleDestino.onDisconnect = () => {
         statusLabel.innerText = "DESCONECTADO";
-        statusLabel.className = "badge bg-secondary mb-3 p-2 px-3";
+        statusLabel.className = "badge bg-danger mb-3 p-2 px-3 animate__animated animate__pulse animate__infinite";
         btnConectar.disabled = false;
         btnConectar.innerHTML = `<i class="bi bi-link-45deg"></i> Conectar Slave`;
         const pingBtn = document.getElementById('btn-ping-destino');

@@ -1059,16 +1059,29 @@ void IRAM_ATTR onSCKChange() {
 // ISR-I2C Hardware: Se ejecuta cuando el Maestro I2C nos ESCRIBE
 void onI2CReceive(int numBytes) {
     if (Wire.available()) {
-        currentRegister = Wire.read(); // El primer byte es la dirección del registro
+        uint8_t reg = Wire.read();
+        currentRegister = reg;
+        
+        // Reportar actividad a la web para la gráfica
+        String report = "I2C_RECV_BUF:M2S:" + String(activeI2CAddr, HEX) + "," + String(reg, HEX);
+        
         while(Wire.available()) {
-            sensorMemory[currentRegister] = Wire.read(); // Guardamos en memoria
+            uint8_t data = Wire.read();
+            sensorMemory[currentRegister] = data;
+            report += "," + String(data, HEX);
             currentRegister++;
         }
+        wsSend(report); // Enviamos a la web para que se vea la gráfica verde (SDA)
     }
 }
 
 // ISR-I2C Hardware: Se ejecuta cuando el Maestro I2C nos LEE
 void onI2CRequest() {
-    Wire.write(sensorMemory[currentRegister]); // Respondemos con lo que hay en memoria
+    uint8_t data = sensorMemory[currentRegister];
+    Wire.write(data); 
+    
+    // Reportar actividad a la web (S2M = Slave to Master)
+    wsSend("I2C_RECV_BUF:S2M:" + String(activeI2CAddr, HEX) + "," + String(data, HEX));
+    
     currentRegister++;
 }

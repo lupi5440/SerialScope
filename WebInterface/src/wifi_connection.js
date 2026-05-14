@@ -14,9 +14,6 @@ export class WiFiProxy {
         this.buffer = "";
     }
 
-    /**
-     * Getter para compatibilidad con el código anterior
-     */
     get isConnected() {
         return this.socket && this.socket.readyState === WebSocket.OPEN;
     }
@@ -81,11 +78,17 @@ export class WiFiProxy {
     sendData(data) {
         if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
             console.error(`[${this.role}] No se puede enviar, el WebSocket no está abierto.`);
+            if (this.onDisconnect) this.onDisconnect();
             return;
         }
 
-        // El ESP32 espera que cada comando termine con un salto de línea (\n)
-        this.socket.send(data + "\n");
+        try {
+            // El ESP32 espera que cada comando termine con un salto de línea (\n)
+            this.socket.send(data + "\n");
+        } catch (e) {
+            console.error(`[${this.role}] Error envío:`, e);
+            if (this.onDisconnect) this.onDisconnect();
+        }
     }
 
     /**

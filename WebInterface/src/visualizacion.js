@@ -599,11 +599,11 @@ export function actualizarConfiguracion(selectId) {
                     ${isSlave ? `
                     <div class="col-6">
                         <label class="small fw-bold text-muted mb-1">Dirección del Esclavo (HEX)</label>
-                        <input type="text" id="i2cAddr" class="form-control form-control-sm bg-light border-0" value="0x08" oninput="marcarProxyDesincronizado()">
+                        <input type="text" id="i2cAddr" class="form-control form-control-sm bg-light border-0" placeholder="Ej: 0x48 o 48" value="0x08" oninput="marcarProxyDesincronizado()">
                     </div>
                     <div class="col-6">
                         <label class="small fw-bold text-muted mb-1">Registro Inicial (HEX)</label>
-                        <input type="text" id="i2cReg" class="form-control form-control-sm bg-light border-0" value="0x00" oninput="marcarProxyDesincronizado()">
+                        <input type="text" id="i2cReg" class="form-control form-control-sm bg-light border-0" placeholder="Ej: 0x00 o 00" value="0x00" oninput="marcarProxyDesincronizado()">
                     </div>
                     <div class="col-12">
                         <label class="small fw-bold text-muted mb-1">Datos de Respuesta Esclavo (HEX)</label>
@@ -634,43 +634,38 @@ export function actualizarConfiguracion(selectId) {
         const isSniffer = (role === 'SNIFFER');
         const isSlave = (role === 'SLAVE');
 
-        if (isSniffer) {
-            configDiv.innerHTML = `<div class="text-center p-3 text-primary opacity-75">
-                <i class="bi bi-usb-symbol" style="font-size:2rem;"></i>
-                <div class="fw-bold mt-2 text-uppercase small">SPI Sniffing</div>
+        configDiv.innerHTML = `
+            <div class="row g-3 py-2">
+                <div class="col-12">
+                    <label class="small fw-bold text-muted mb-1">Modo SPI (CPOL/CPHA)</label>
+                    <select id="spiMode" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
+                        <option value="0">Modo 0 (0,0) - Estándar</option>
+                        <option value="1">Modo 1 (0,1)</option>
+                        <option value="2">Modo 2 (1,0)</option>
+                        <option value="3">Modo 3 (1,1)</option>
+                    </select>
+                </div>
+                ${!isSniffer ? (isSlave ? `
+                <div class="col-12">
+                    <label class="small fw-bold text-muted mb-1">Datos de Respuesta Esclavo (HEX)</label>
+                    <input type="text" id="slaveDataInput" class="form-control form-control-sm border-purple"
+                        placeholder="FF,AA,00..." value="DE,AD,BE,EF" oninput="marcarProxyDesincronizado()">
+                </div>` : `
+                <div class="col-12">
+                    <label class="small fw-bold text-muted mb-1">Frecuencia de Reloj</label>
+                    <select id="spiFreq" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
+                        <option value="100000">100 kHz</option>
+                        <option value="1000000" selected>1 MHz</option>
+                        <option value="4000000">4 MHz</option>
+                        <option value="8000000">8 MHz</option>
+                    </select>
+                </div>`) : `
+                <div class="col-12 text-center py-2">
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 w-100 py-2">
+                        <i class="bi bi-info-circle me-1"></i> Modo Sniffing Pasivo Activo
+                    </span>
+                </div>`}
             </div>`;
-        } else {
-            configDiv.innerHTML = `
-                <div class="row g-3 py-2">
-                    <div class="col-12">
-                        <label class="small fw-bold text-muted mb-1">Modo (CPOL/CPHA)</label>
-                        <select id="spiMode" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
-                            <option value="0">Modo 0 (0,0)</option>
-                            <option value="1">Modo 1 (0,1)</option>
-                            <option value="2">Modo 2 (1,0)</option>
-                            <option value="3">Modo 3 (1,1)</option>
-                        </select>
-                    </div>
-                    ${!isSlave ? `
-                    <div class="col-12">
-                        <label class="small fw-bold text-muted mb-1">Frecuencia de Reloj</label>
-                        <select id="spiFreq" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
-                            <option value="100000">100 kHz (Lento / Inicialización)</option>
-                            <option value="1000000" selected>1 MHz (Seguro)</option>
-                            <option value="2000000">2 MHz</option>
-                            <option value="4000000">4 MHz (Estándar Arduino)</option>
-                            <option value="8000000">8 MHz</option>
-                            <option value="10000000">10 MHz (Rápido)</option>
-                            <option value="20000000">20 MHz (Muy Rápido - Límite cables)</option>
-                        </select>
-                    </div>` : `
-                    <div class="col-12">
-                        <label class="small fw-bold text-muted mb-1">Datos de Respuesta Esclavo (HEX)</label>
-                        <input type="text" id="slaveDataInput" class="form-control form-control-sm border-purple"
-                            placeholder="FF,AA,00..." value="DE,AD,BE,EF" oninput="marcarProxyDesincronizado()">
-                    </div>`}
-                </div>`;
-        }
 
         if (containerCH2) containerCH2.style.display = 'none';
         badgeCH1.innerText = `BUS SPI (${role})`;
@@ -966,7 +961,7 @@ window.conectarAnalizador = () => {
     wifiAnalizador.onDisconnect = () => {
         if (statusEl) {
             statusEl.innerText = "DESCONECTADO";
-            statusEl.className = "badge bg-secondary mb-3 p-2 px-3";
+            statusEl.className = "badge bg-danger mb-3 p-2 px-3 animate__animated animate__pulse animate__infinite";
         }
         if (connectBtn) {
             connectBtn.disabled = false;

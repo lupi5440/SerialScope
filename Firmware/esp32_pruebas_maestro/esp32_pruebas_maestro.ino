@@ -42,7 +42,7 @@
 #define SPI_SCK   18
 #define SPI_MISO  19
 #define SPI_MOSI  23
-#define SPI_CS    5  
+#define SPI_CS 5 
 
 // --- PINES AUXILIARES PANTALLA ---
 #define TFT_RST   26  // Reset (Reinicio físico de la pantalla)
@@ -407,6 +407,10 @@ void ejecutarComando(String cmd) {
     if (cmd == "EMU_STOP") { 
         emulacionActiva = false;
         digitalWrite(LED_STATUS_VERDE, LOW); // Resetear estado visual al detener
+        
+        // liberacion del bus spi para que no haya colisiones
+        digitalWrite(SPI_CS, HIGH); 
+        
         Serial.println("[SISTEMA] >>> Prueba detenida.");
         bleSend("STOP_OK"); 
         return; 
@@ -456,6 +460,7 @@ void ejecutarComando(String cmd) {
             bleSend("RESULTADO: Iniciando sondeo (" + i2cProfile + ") en 0x" + String(i2cAddress, HEX) + " a " + String(speed/1000) + " kHz...");
 
         } else if (proto == "SPI") {
+            digitalWrite(SPI_CS, HIGH); // Asegurar bus libre antes de empezar
             int modeIdx = getParam(cmd, 3).toInt();
             spiProfile = getParam(cmd, 4);
             int blinks = modeIdx + 1;
@@ -464,7 +469,21 @@ void ejecutarComando(String cmd) {
             
             if (spiProfile == "TFT") {
                 Serial.println("[SISTEMA] >>> Inicializando Pantalla TFT...");
+                
+                // 1. Limpiamos el bus por si veníamos del sensor
+                SPI.end(); 
+                
+                // 2. Iniciamos SPI dejando el CS libre (-1)
+                SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, -1);
+                
+                // 3. Inicializamos la pantalla (¡Aquí Adafruit secuestra el pin 5 internamente!)
                 tft.initR(INITR_BLACKTAB); 
+                
+                // 4. EL TRUCO VITAL: Forzamos el pin 5 a desenlazarse del hardware SPI
+                // y volver a ser un pin digital manual (GPIO) para que el CS pueda moverse.
+                pinMode(SPI_CS, OUTPUT);
+                digitalWrite(SPI_CS, HIGH); 
+                
                 tft.setRotation(1);
                 tft.fillScreen(ST7735_BLACK);
                 tft.setTextColor(ST7735_CYAN);
@@ -477,6 +496,19 @@ void ejecutarComando(String cmd) {
                 tft.println("SPI: ST7735 128x160");
                 tft.setCursor(10, 50);
                 tft.println("Esperando texto...");
+                
+            } else if (spiProfile == "MAX6675") {
+                Serial.println("[SISTEMA] >>> Inicializando Sensor MAX6675...");
+                
+                // 1. Apagamos el hardware SPI por completo
+                SPI.end(); 
+                
+                // 2. Forzamos todos los pines a modo manual para el bit-banging del sensor
+                pinMode(SPI_SCK, OUTPUT);
+                pinMode(SPI_MISO, INPUT);
+                pinMode(SPI_MOSI, OUTPUT);
+                pinMode(SPI_CS, OUTPUT);
+                digitalWrite(SPI_CS, HIGH);
             }
 
             Serial.println("[SISTEMA] >>> Configurando SPI | Modo: " + String(modeIdx) + " | Perfil: " + spiProfile);
