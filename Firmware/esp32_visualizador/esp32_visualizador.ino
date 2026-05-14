@@ -705,7 +705,13 @@ void ejecutarComando(String cmd) {
         uint8_t err = Wire.endTransmission();
         Wire.end();
         startSniffingI2C();
-        wsSend(err == 0 ? "I2C_TX_OK" : "I2C_TX_ERR");
+        if (err == 0) {
+            wsSend("I2C_TX_OK");
+            digitalWrite(LED_STATUS_VERDE, LOW);
+        } else {
+            wsSend("I2C_TX_ERR");
+            digitalWrite(LED_STATUS_VERDE, HIGH); // Alerta de error en bus
+        }
 
         // RE-INICIALIZACIÓN CRÍTICA: El bus I2C puede resetear el modo de los pines cercanos
         pinMode(LED_I2C_AMARILLO, OUTPUT);
@@ -810,8 +816,13 @@ void ejecutarComando(String cmd) {
         uint8_t err = Wire.endTransmission();
         startSniffingI2C(); 
         
-        if (err == 0) wsSend("I2C_RECV_BUF:" + addrStr + "," + regStr + "," + dataStr);
-        else wsSend("I2C_TX_ERR:Sin respuesta");
+        if (err == 0) {
+            wsSend("I2C_RECV_BUF:" + addrStr + "," + regStr + "," + dataStr);
+            digitalWrite(LED_STATUS_VERDE, LOW);
+        } else {
+            wsSend("I2C_TX_ERR:Sin respuesta");
+            digitalWrite(LED_STATUS_VERDE, HIGH); // Alerta de error en bus
+        }
         
         pinMode(LED_I2C_AMARILLO, OUTPUT);
     }
@@ -831,8 +842,14 @@ void ejecutarComando(String cmd) {
         
         Wire.beginTransmission(addr);
         Wire.write(reg);
-        Wire.endTransmission(false); 
+        uint8_t err = Wire.endTransmission(false); 
         
+        if (err != 0) {
+            startSniffingI2C();
+            wsSend("I2C_TX_ERR:NACK en lectura");
+            digitalWrite(LED_STATUS_VERDE, HIGH);
+            return;
+        }        
         Wire.requestFrom((uint16_t)addr, (uint8_t)numBytes, true);
         
         String readData = "";

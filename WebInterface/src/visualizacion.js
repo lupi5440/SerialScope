@@ -616,7 +616,6 @@ export function actualizarConfiguracion(selectId) {
                         <select id="i2cSpeed" class="form-select form-select-sm bg-light border-0" onchange="marcarProxyDesincronizado()">
                             <option value="100000">Standard Mode (100 kHz)</option>
                             <option value="400000">Fast Mode (400 kHz)</option>
-                            <option value="1000000">Fast Mode Plus (1 MHz)</option>
                         </select>
                     </div>`}
                 </div>`;

@@ -42,7 +42,7 @@ class BLEProxy {
                 try {
                     console.log(`[${this.role}] Conectando...`);
                     this.server = await this.device.gatt.connect();
-                    
+
                     await new Promise(resolve => setTimeout(resolve, 500));
 
                     this.service = await this.server.getPrimaryService(BLE_SERVICE_UUID);
@@ -50,7 +50,7 @@ class BLEProxy {
                     this.txCharacteristic = await this.service.getCharacteristic(BLE_TX_UUID);
 
                     await this.txCharacteristic.startNotifications();
-                    
+
                     // Limpiar listeners previos para no duplicar mensajes
                     this.txCharacteristic.removeEventListener('characteristicvaluechanged', this._boundHandleNotifications);
                     this._boundHandleNotifications = (e) => this.handleNotifications(e);
@@ -86,7 +86,7 @@ class BLEProxy {
         if (this.flushTimeout) clearTimeout(this.flushTimeout);
 
         let lines = this.buffer.split('\n');
-        
+
         // Si hay líneas completas (terminan en \n), procésalas
         if (lines.length > 1) {
             this.buffer = lines.pop(); // Lo último se queda en el buffer por si está incompleto
@@ -103,7 +103,7 @@ class BLEProxy {
                     if (this.onDataReceived) this.onDataReceived(this.buffer.trim());
                     this.buffer = "";
                 }
-            }, 100);
+            }, 500); // Aumentado para dar tiempo a recibir todos los trozos (chunks) BLE
         }
     }
 
@@ -750,16 +750,16 @@ export function responderDestinoUART() {
     const dataInput = document.getElementById('destino-manual-data');
     const data = dataInput.value;
     if (!data) return;
-    
+
     bleDestino.sendData(data);
-    
+
     // Eco Local: Mostrar lo que enviamos en el chat del Slave
     const chatArea = document.getElementById('chat-slave-recibido');
     if (chatArea) {
         chatArea.value += "ENVIADO: " + data + "\n";
         chatArea.scrollTop = chatArea.scrollHeight;
     }
-    
+
     dataInput.value = "";
 }
 

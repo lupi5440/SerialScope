@@ -141,6 +141,7 @@ void actualizarLeds(Modo m, int blinks) {
     digitalWrite(LED_UART_ROJO, LOW);
     digitalWrite(LED_SPI_AZUL, LOW);
     digitalWrite(LED_I2C_AMARILLO, LOW);
+    digitalWrite(LED_STATUS_VERDE, LOW); // Siempre limpiar alertas al cambiar de modo
     modoActual = m;
     ledBlinkTarget = blinks;
     ledBlinkCount = 0;
@@ -215,11 +216,11 @@ void processTasks() {
                 res = "Aviso: Lectura 0.00 (Revisar Cables)";
                 digitalWrite(LED_STATUS_VERDE, HIGH);
             } else {
-                res = "Temperatura: " + String(celsius) + " C";
+                res = "Temp: " + String(celsius) + " C";
                 digitalWrite(LED_STATUS_VERDE, LOW);
             }
             Serial.println("[SPI] >>> " + res);
-            bleSend("RESULTADO: " + res);
+            bleSend("RESULTADO:" + res); // Eliminado espacio tras RESULTADO: para ahorrar bytes
             ultimaTarea = millis();
         }
     } else if (modoActual == SPI_EMU && spiProfile == "TFT") {
@@ -230,7 +231,7 @@ void processTasks() {
             String msg = "";
             
             if (i2cProfile == "BMP180") {
-                // Tráfico I2C Real para BMP180
+                // Tráfico I2C para BMP180
                 Wire.beginTransmission(i2cAddress);
                 Wire.write(0xF4);
                 Wire.write(0x2E); 
@@ -244,10 +245,14 @@ void processTasks() {
                         uint8_t msb = Wire.read();
                         uint8_t lsb = Wire.read();
                         int val = (msb << 8) | lsb;
-                        msg = "Dato del Sensor (0x" + String(i2cAddress, HEX) + "): " + String(val);
+                        msg = "BMP180 (0x" + String(i2cAddress, HEX) + "): " + String(val);
+                        digitalWrite(LED_STATUS_VERDE, LOW); 
+                    } else {
+                        msg = "Error BMP180 en 0x" + String(i2cAddress, HEX);
+                        digitalWrite(LED_STATUS_VERDE, HIGH);
                     }
                 } else {
-                    msg = "NACK: BMP180 no detectado en 0x" + String(i2cAddress, HEX);
+                    msg = "NACK: BMP180 en 0x" + String(i2cAddress, HEX);
                     digitalWrite(LED_STATUS_VERDE, HIGH);
                 }
             } else if (i2cProfile == "TMP") {
@@ -256,22 +261,23 @@ void processTasks() {
                 Wire.write(0x00);
                 if (Wire.endTransmission() == 0) {
                     Wire.requestFrom((uint16_t)i2cAddress, (uint8_t)2);
-                    // Revisa la direccion I2C, si no es correcta no se puede leer el sensor
                     if (Wire.available() == 2) {
                         uint8_t msb = Wire.read();
                         uint8_t lsb = Wire.read();
                         int val = ((msb << 8) | lsb) >> 4;
-                        msg = "Lectura Digital TMP102 (0x" + String(i2cAddress, HEX) + "): " + String(val);
+                        msg = "TMP102 (0x" + String(i2cAddress, HEX) + "): " + String(val);
+                        digitalWrite(LED_STATUS_VERDE, LOW); 
                     } else {
-                        msg = "Error lectura TMP102 en 0x" + String(i2cAddress, HEX);
+                        msg = "Error TMP102 en 0x" + String(i2cAddress, HEX);
+                        digitalWrite(LED_STATUS_VERDE, HIGH);
                     }
                 } else {
-                    msg = "NACK: TMP102 no detectado en 0x" + String(i2cAddress, HEX);
+                    msg = "NACK: TMP102 en 0x" + String(i2cAddress, HEX);
                     digitalWrite(LED_STATUS_VERDE, HIGH);
                 }
             }
             Serial.println("[I2C] >>> " + msg);
-            bleSend("RESULTADO: " + msg);
+            bleSend("RESULTADO:" + msg);
             ultimaTarea = millis();
         }
     }
@@ -400,6 +406,7 @@ void ejecutarComando(String cmd) {
     // 2. EMU_STOP: Detener emulación
     if (cmd == "EMU_STOP") { 
         emulacionActiva = false;
+        digitalWrite(LED_STATUS_VERDE, LOW); // Resetear estado visual al detener
         Serial.println("[SISTEMA] >>> Prueba detenida.");
         bleSend("STOP_OK"); 
         return; 
@@ -585,7 +592,7 @@ void bleSend(String texto) {
             pTxCharacteristic->setValue((uint8_t*)(payload.c_str() + offset), currentChunkSize);
             pTxCharacteristic->notify();
             offset += currentChunkSize;
-            delay(15); // Pausa mínima para estabilidad del stack BLE
+            delay(30); // Aumentado para mayor estabilidad en dispositivos lentos
         }
     }
 }

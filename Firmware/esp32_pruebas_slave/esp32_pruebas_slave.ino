@@ -66,6 +66,7 @@ class MyServerCallbacks: public BLEServerCallbacks {
     void onConnect(BLEServer* pServer) { 
         deviceConnected = true; 
         digitalWrite(LED_BLE_BLANCO, HIGH);
+        digitalWrite(LED_STATUS_VERDE, LOW); // Limpiar posibles alertas al conectar
         Serial.println("Bluetooth Conectado (Slave)");
         lastBlinkTime = millis();
     }
@@ -215,6 +216,7 @@ void loop() {
         Serial.print("[UART -> BLE] "); Serial.print(uartData);
         
         if (deviceConnected) {
+            digitalWrite(LED_STATUS_VERDE, LOW); // Conexión activa: datos fluyendo
             // Dividimos en trozos de 20 bytes (estándar BLE) para asegurar que llegue todo el texto
             int dataLen = uartData.length();
             for (int i = 0; i < dataLen; i += 20) {
@@ -225,6 +227,9 @@ void loop() {
                 pTxCharacteristic->notify();
                 delay(10); // Pequeña pausa para que el stack BLE procese el paquete
             }
+        } else {
+            // ERROR: Se reciben datos por cable pero no hay nadie escuchando en la web
+            digitalWrite(LED_STATUS_VERDE, HIGH);
         }
     }
 }
