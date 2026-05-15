@@ -452,7 +452,7 @@ export function procesarEntradaAnalizador(linea) {
                     const resBox = document.getElementById('spiMasterResponse');
                     const container = document.getElementById('spi-master-result-container');
                     if (container) container.style.display = 'block';
-                    
+
                     // Acumular los bytes MISO si es una ráfaga
                     if (i === 0) {
                         if (resBox) resBox.innerText = misoClean;
@@ -534,7 +534,7 @@ function agregarFilaTabla(time, direccion, proto, dato, badgeClass) {
         </tr>`;
         body.insertAdjacentHTML('afterbegin', row);
 
-        // OPTIMIZACIÓN: Limitar el número de filas en el DOM (Mejora de salud 1)
+        // OPTIMIZACIÓN: Limitar el número de filas en el DOM 
         if (body.rows.length > 100) {
             body.deleteRow(body.rows.length - 1);
         }
@@ -755,7 +755,7 @@ window.enviarSPITransfer = function () {
     data = data.replace(/^,|,$/g, ''); // Quitar comas al inicio o final
 
     console.log("Enviando transferencia SPI normalizada:", data);
-    
+
     // Limpiar respuesta anterior antes de enviar
     const resBox = document.getElementById('spiMasterResponse');
     if (resBox) resBox.innerText = "Transfiriendo...";
