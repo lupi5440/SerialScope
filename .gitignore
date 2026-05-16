@@ -22,6 +22,10 @@ Firmware/**/libraries/
 .gcc-flags.json
 atmel_devices_lib.code-workspace
 
+# kiCad
+PCB/fp-info-cache
+PCB/*-backups/
+
 # --- OS & Editors ---
 .DS_Store
 Thumbs.db
