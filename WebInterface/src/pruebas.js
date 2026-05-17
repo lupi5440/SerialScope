@@ -118,8 +118,8 @@ class BLEProxy {
         }
         try {
             await this.rxCharacteristic.writeValue(this.encoder.encode(data + "\n"));
-        } catch (error) { 
-            console.error("Error envío (posible desconexión):", error); 
+        } catch (error) {
+            console.error("Error envío (posible desconexión):", error);
             this.handleDisconnect(); // Forzar actualización de UI si falla el envío
         }
     }
@@ -189,11 +189,19 @@ export function conectarEmulador() {
     // Función que lee los reportes del micro ESP32
     bleEmulador.onDataReceived = (data) => {
         console.log("Respuesta del Emulador:", data);
-        if (data.includes("PONG")) {
-            // Confirmación de latencia visual
-            alert("¡PONG! Pruebas Master respondiendo correctamente.");
+
+        // Manejo de Latencia PING/PONG
+        if (data.startsWith("PONG")) {
+            let msg = "¡PONG! Nodo Master respondiendo correctamente.";
+            if (data.includes(":")) {
+                const tiempoEnvio = parseInt(data.split(":")[1]);
+                const latenciaMs = Date.now() - tiempoEnvio;
+                msg += `\nLatencia BLE (Ida y vuelta): ${latenciaMs} ms`;
+            }
+            alert(msg);
             return;
         }
+
         if (data.startsWith("READY:")) {
             // ¡Confirmado! El hardware terminó de remapear puertos.
             marcarEmuSincronizado();
@@ -776,8 +784,14 @@ export function conectarDestinoUART() {
     };
 
     bleDestino.onDataReceived = (data) => {
-        if (data.includes("PONG_DESTINO")) {
-            alert("¡PONG! Pruebas Slave respondiendo correctamente.");
+        if (data.startsWith("PONG")) {
+            let msg = "¡PONG! Nodo Slave respondiendo correctamente.";
+            if (data.includes(":")) {
+                const tiempoEnvio = parseInt(data.split(":")[1]);
+                const latenciaMs = Date.now() - tiempoEnvio;
+                msg += `\nLatencia BLE (Ida y vuelta): ${latenciaMs} ms`;
+            }
+            alert(msg);
             return;
         }
 
@@ -829,10 +843,23 @@ window.setBrilloTFT = function (val) {
 window.limpiarChat = limpiarChat;
 window.conectarDestinoUART = conectarDestinoUART;
 window.responderDestinoUART = responderDestinoUART;
-window.pingDestinoUART = () => bleDestino.sendData("PING");
+
+window.pingDestinoUART = () => {
+    if (bleDestino.isConnected) {
+        const tiempoActual = Date.now();
+        bleDestino.sendData("PING:" + tiempoActual);
+    }
+};
 
 window.conectarEmulador = conectarEmulador;
-window.pingEmulador = () => bleEmulador.sendData("PING");
+
+window.pingEmulador = () => {
+    if (bleEmulador.isConnected) {
+        const tiempoActual = Date.now();
+        bleEmulador.sendData("PING:" + tiempoActual);
+    }
+};
+
 window.cambiarVistaConfig = cambiarVistaConfig;
 window.aplicarEmulacion = aplicarEmulacion;
 window.iniciarEmulacion = iniciarEmulacion;

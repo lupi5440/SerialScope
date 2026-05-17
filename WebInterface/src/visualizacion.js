@@ -398,18 +398,35 @@ export function startLiveClock() {
 
 export function procesarEntradaAnalizador(linea) {
 
-    if (linea.includes("PONG")) { alert("¡Conexión verificada!"); return; }
-    if (linea.startsWith("READY:")) {
+    // Manejo de Latencia (Ping/Pong)
+    if (linea.startsWith("PONG")) {
+        let mensajeAlerta = "¡Conexión verificada!";
+        if (linea.includes(":")) {
+            const tiempoEnvio = parseInt(linea.split(":")[1]);
+            const latenciaMs = Date.now() - tiempoEnvio;
+            mensajeAlerta += `\nLatencia de red (Ida y vuelta): ${latenciaMs} ms`;
+        }
+
+        const btnPing = document.getElementById('btn-ping');
+        if (btnPing) btnPing.innerHTML = '<i class="bi bi-wifi"></i> Ping';
+
+        alert(mensajeAlerta);
+        return;
+    }
+
+    if (linea === "READY:PUERTOS_OK") {
         marcarProxySincronizado();
         return;
     }
+
+    //Muestra los datos en pantalla cuando leemos un sensor I2C
     if (linea.startsWith("I2C_READ_RES:")) {
         const resBox = document.getElementById('i2cReadResponse');
         if (resBox) resBox.innerText = linea.substring(13) || "Sin datos";
         return;
     }
 
-    // --- Manejo de Respuestas de Escritura ---
+    //Manejo de Respuestas de Escritura
     if (linea.includes("I2C_TX_OK")) {
         alert("✅ I2C: Escritura exitosa al esclavo.");
         return;
@@ -854,7 +871,7 @@ export function enviarConfiguracionFisica() {
     wifiAnalizador.sendData(cmd);
 
     if (role !== 'SNIFFER') {
-        setTimeout(() => { actualizarModoActivoHardware(); }, 1500);
+        setTimeout(() => { actualizarModoActivoHardware(); }, 2500);
     }
 }
 
@@ -956,9 +973,14 @@ window.enviarConfiguracionFisica = enviarConfiguracionFisica;
 window.actualizarConfiguracion = actualizarConfiguracion;
 window.marcarProxyDesincronizado = marcarProxyDesincronizado;
 window.marcarProxySincronizado = marcarProxySincronizado;
+
+// Ping con marca de tiempo
 window.probarPing = () => {
     if (wifiAnalizador && wifiAnalizador.isConnected) {
-        wifiAnalizador.sendData("PING");
+        const tiempoActual = Date.now();
+        wifiAnalizador.sendData("PING:" + tiempoActual);
+        const btnPing = document.getElementById('btn-ping');
+        if (btnPing) btnPing.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Midiendo...';
     } else {
         alert("⚠️ El visualizador no está conectado.");
     }

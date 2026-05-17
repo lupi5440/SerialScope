@@ -128,16 +128,23 @@ class MyCallbacks: public BLECharacteristicCallbacks {
                 }
             } 
 
-            // Comando PING para prueba de enlace
-            else if (rxValue == "PING") {
+            // Comando PING para prueba de enlace y latencia
+            else if (rxValue.startsWith("PING")) {
                 digitalWrite(LED_STATUS_VERDE, HIGH);
                 pingIndicatorOffTime = millis() + PING_LED_DURATION_MS;
-                String response = "PONG_DESTINO\n";
+                
+                String response = "PONG";
+                int separatorIdx = rxValue.indexOf(':');
+                if (separatorIdx != -1) {
+                    response += ":" + rxValue.substring(separatorIdx + 1);
+                }
+                response += "\n";
+                
                 if(deviceConnected) {
                     pTxCharacteristic->setValue((uint8_t*)response.c_str(), response.length());
                     pTxCharacteristic->notify();
                 }
-            } 
+            }
 
             //Reenvío de texto plano al Master por UART
             else {
@@ -249,34 +256,30 @@ void loop() {
     // UART -> BLE (Con cortador de mensajes largos para evitar errores por saturación de memoria)
     // Leemos lo que llega del Master por el cable UART y lo mandamos a la web por Bluetooth
     if (Serial2.available()) {
-        String uartData = "";
-        uartData.reserve(UART_MAX_RX_BUFFER);  //  Pre-asigna memoria para evitar fragmentación y reallocation dinámica
+        uint8_t rxBuffer[UART_MAX_RX_BUFFER];
+        int bytesRead = 0;
 
-        // Leemos el buffer disponible
-        while(Serial2.available()) {
-            uartData += (char)Serial2.read();
-            if (uartData.length() >= UART_MAX_RX_BUFFER) break; // Límite de seguridad
+        // Leemos el buffer disponible hacia la memoria estática
+        while(Serial2.available() && bytesRead < UART_MAX_RX_BUFFER) {
+            rxBuffer[bytesRead++] = Serial2.read();
         }
         
-        // Se imprime en la terminal serie el mensaje que llega del Master por el cable UART
-        Serial.print("[UART -> BLE] "); Serial.print(uartData);
-        
         if (deviceConnected) {
+            digitalWrite(LED_STATUS_VERDE, LOW); // Apaga led de error
 
-            digitalWrite(LED_STATUS_VERDE, LOW); // Si hay actividad se apaga el led verde de error
-
-            // Dividimos en trozos por tamaño para asegurar que llegue todo el texto
-            int dataLen = uartData.length();
-            for (int i = 0; i < dataLen; i += BLE_CHUNK_SIZE) {
-                int endIdx = (i + BLE_CHUNK_SIZE < dataLen) ? (i + BLE_CHUNK_SIZE) : dataLen;
-                String chunk = uartData.substring(i, endIdx);
-        
-                pTxCharacteristic->setValue((uint8_t*)chunk.c_str(), chunk.length());
+            // Dividimos en trozos (Chunks) de 20 bytes para BLE
+            for (int i = 0; i < bytesRead; i += BLE_CHUNK_SIZE) {
+                int currentChunkSize = (i + BLE_CHUNK_SIZE < bytesRead) ? BLE_CHUNK_SIZE : (bytesRead - i);
+                
+                pTxCharacteristic->setValue(rxBuffer + i, currentChunkSize);
                 pTxCharacteristic->notify();
-                delay(10); // Pequeña pausa para que el stack BLE procese el paquete
+                
+                // Reducimos el delay a 3ms; suficiente para que el stack BLE respire
+                // sin generar un cuello de botella en lecturas largas
+                delay(3); 
             }
         } else {
-            // ERROR: Se reciben datos por cable pero no hay nadie escuchando en la web
+            // ERROR: Se reciben datos por cable pero no hay conexión BLE
             digitalWrite(LED_STATUS_VERDE, HIGH);
         }
     }

@@ -116,7 +116,7 @@ void wsSend(String texto);
 
 // Estructura para enviar por la cola
 typedef struct {
-    char cmd[128]; // Soporta comandos de hasta 127 caracteres
+    char cmd[512]; // Soporta comandos de hasta 127 caracteres
 } MensajeComando;
 
 // Identificador de la cola de FreeRTOS
@@ -243,9 +243,13 @@ void setup() {
     digitalWrite(LED_UART_ROJO, LOW);
     digitalWrite(LED_SPI_AZUL, LOW);
     digitalWrite(LED_I2C_AMARILLO, LOW);
+
+    //btener el mejor canal de forma dinámica
+    int canalOptimo = obtenerMejorCanalWiFi();
     
     // Configura el punto de acceso Wi-Fi
-    WiFi.softAP(ssid, password);
+    WiFi.mode(WIFI_AP); 
+    WiFi.softAP(ssid, password, canalOptimo, 0, 4);
     digitalWrite(LED_WIFI_BLANCO, HIGH);
     
     // Inicia el servidor web para manejar la comunicación con la interfaz web
@@ -265,7 +269,6 @@ void loop() {
 
     // Procesar comandos desde la cola de comandos
     MensajeComando comandoRecibido;
-    // Saca el elemento más antiguo de la cola. 
     if (xQueueReceive(colaComandos, &comandoRecibido, 0) == pdTRUE) {
         String cmd = String(comandoRecibido.cmd);
         ejecutarComando(cmd);
@@ -275,87 +278,88 @@ void loop() {
 
     manejarLEDs();
     
-    //Lectura continua del hardware (Solo para el protocolo activo)
+    // Lógica de lectura para UART como proxy transparente
     if (currentProtocol == "UART") {
-        // --- PROXY TRANSPARENTE UART ---
-        while (Serial1.available() && idxM2S < UART_BUF_SIZE) {
+        int readLimit = 0; // Freno de seguridad
+        
+        while (Serial1.available() && idxM2S < UART_BUF_SIZE && readLimit < 64) {
             uint8_t c = Serial1.read();
             Serial2.write(c); 
             rawBufferM2S[idxM2S++] = c;
+            readLimit++;
         }
 
-        while (Serial2.available() && idxS2M < UART_BUF_SIZE) {
+        readLimit = 0;
+        while (Serial2.available() && idxS2M < UART_BUF_SIZE && readLimit < 64) {
             uint8_t c = Serial2.read();
             Serial1.write(c); 
             rawBufferS2M[idxS2M++] = c;
+            readLimit++;
         }
     }
-    // Nota: SPI e I2C no necesitan lectura en el loop porque se leen en las interrupciones.
 
-    // Empaquetado y envío por WiFi (Protegido a max. 50 paquetes por segundo)
+    // Empaquetado y envio por WiFi para SPI, I2C y UART
     if (millis() - lastFlushTime > FLUSH_INTERVAL) {
+        
         if (currentProtocol == "SPI") {
             if (spiReadIdx != spiWriteIdx) {
                 lastSpiTime = millis();  
-                String data = "SPI_RECV_BUF:";
-                data.reserve(460); 
-                char hexTemp[4]; 
-                int maxBytesPerLoop = 0;
                 
-                while (spiReadIdx != spiWriteIdx && maxBytesPerLoop < 150) { 
-                    sprintf(hexTemp, "%02X,", spiRawBuffer[spiReadIdx]); 
-                    data += hexTemp;
+                // Buffer estático para SPI
+                char sendBuf[512]; 
+                int len = snprintf(sendBuf, sizeof(sendBuf), "SPI_RECV_BUF:");
+                int maxBytes = 0;
+                
+                // Escribimos directamente en el buffer estático
+                while (spiReadIdx != spiWriteIdx && maxBytes < 150 && len < 490) { 
+                    len += snprintf(sendBuf + len, sizeof(sendBuf) - len, "%02X,", spiRawBuffer[spiReadIdx]); 
                     spiReadIdx = (spiReadIdx + 1) % SPI_BUFFER_SIZE;
-                    maxBytesPerLoop++;
+                    maxBytes++;
                 }
-                wsSend(data);
+                wsSend(String(sendBuf));
             }
         }
         
         else if (currentProtocol == "I2C") {
             if (i2cReadIdx != i2cWriteIdx && (millis() - lastI2cTime > 10)) {
                 lastI2cTime = millis();  
-                String data = "I2C_RECV_BUF:";
-                data.reserve(460); 
-                char hexTemp[4];
-                int maxBytesPerLoop = 0;
                 
-                while (i2cReadIdx != i2cWriteIdx && maxBytesPerLoop < 150) { 
-                    sprintf(hexTemp, "%02X,", i2cRawBuffer[i2cReadIdx]);
-                    data += hexTemp;
+                char sendBuf[512]; 
+                int len = snprintf(sendBuf, sizeof(sendBuf), "I2C_RECV_BUF:");
+                int maxBytes = 0;
+                
+                while (i2cReadIdx != i2cWriteIdx && maxBytes < 150 && len < 490) { 
+                    len += snprintf(sendBuf + len, sizeof(sendBuf) - len, "%02X,", i2cRawBuffer[i2cReadIdx]);
                     i2cReadIdx = (i2cReadIdx + 1) % I2C_BUFFER_SIZE;
-                    maxBytesPerLoop++;
+                    maxBytes++;
                 }
-                wsSend(data);
+                wsSend(String(sendBuf));
             }
         }
         
         else if (currentProtocol == "UART") {
-            char hexTemp[4]; 
             if (idxM2S > 0) {
-                String payload = "UART_RECV_BUF:M2S:";
-                payload.reserve(25 + idxM2S * 3); 
-                for (int i = 0; i < idxM2S; i++) {
-                    sprintf(hexTemp, "%02X,", rawBufferM2S[i]); 
-                    payload += hexTemp;
+                char sendBuf[512];
+                int len = snprintf(sendBuf, sizeof(sendBuf), "UART_RECV_BUF:M2S:");
+                for (int i = 0; i < idxM2S && len < 490; i++) {
+                    len += snprintf(sendBuf + len, sizeof(sendBuf) - len, "%02X,", rawBufferM2S[i]); 
                 }
-                wsSend(payload);
+                wsSend(String(sendBuf));
                 idxM2S = 0; 
             }
 
             if (idxS2M > 0) {
-                String payload = "UART_RECV_BUF:S2M:";
-                payload.reserve(25 + idxS2M * 3);
-                for (int i = 0; i < idxS2M; i++) {
-                    sprintf(hexTemp, "%02X,", rawBufferS2M[i]);
-                    payload += hexTemp;
+                char sendBuf[512];
+                int len = snprintf(sendBuf, sizeof(sendBuf), "UART_RECV_BUF:S2M:");
+                for (int i = 0; i < idxS2M && len < 490; i++) {
+                    len += snprintf(sendBuf + len, sizeof(sendBuf) - len, "%02X,", rawBufferS2M[i]);
                 }
-                wsSend(payload);
+                wsSend(String(sendBuf));
                 idxS2M = 0; 
             }
         }
         
-        lastFlushTime = millis(); // Reiniciar el temporizador de envíos
+        lastFlushTime = millis(); 
     }
 
     // Revisamos las banderas del Esclavo I2C para enviar mensaje
@@ -367,7 +371,6 @@ void loop() {
         wsSend(String((char*)i2cSlaveReqBuffer));
         i2cSlaveReqReady = false;
     }
-
 }
 
 // Actualizar LEDs según el protocolo
@@ -493,9 +496,15 @@ void onEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType 
 void ejecutarComando(String cmd) {
     Serial.println("[WS] >>> " + cmd);
 
-    // 1. Ping de conexión
-    if (cmd == "PING") { 
-        wsSend("PONG"); 
+    // 1. Ping de conexión y medición de latencia
+    if (cmd.startsWith("PING")) {
+        String timestamp = getParam(cmd, 1);
+        if (timestamp != "") {
+            wsSend("PONG:" + timestamp); 
+        } else {
+            wsSend("PONG"); 
+        }
+        
         digitalWrite(LED_STATUS_VERDE, HIGH);
         greenLedTurnOffTime = millis() + 500; 
         return; 
@@ -639,77 +648,6 @@ void ejecutarComando(String cmd) {
 
         // RE-INICIALIZACIÓN CRÍTICA: El bus I2C puede resetear el modo de los pines cercanos
         pinMode(LED_I2C_AMARILLO, OUTPUT);
-    }
-
-    // SPI SLAVE EMULATION
-    if (cmd.startsWith("SPI_SLAVE_ON:")) {
-        int f = cmd.indexOf(':');
-        String dataStr = cmd.substring(f+1);
-        
-        Serial.println("[MODO ACTIVO] >>> Configurando Esclavo SPI Emulado...");
-        spiSlaveBufferSize = 0;
-        int start = 0;
-        for (int i = 0; i <= dataStr.length(); i++) {
-            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
-                String b = dataStr.substring(start, i);
-                if (b.length() > 0 && spiSlaveBufferSize < 256) {
-                    spiSlaveBuffer[spiSlaveBufferSize++] = (uint8_t)strtol(b.c_str(), NULL, 16);
-                }
-                start = i + 1;
-            }
-        }
-        
-        pinMode(SPI_MISO_PIN, OUTPUT); // MISO como salida para responder
-        spiSlaveMode = true;
-        spiSlaveBytePtr = 0;
-        spiSlaveBitPtr = 0;
-        
-        Serial.printf("[SISTEMA] >>> Modo Esclavo SPI Activo con %d bytes\n", spiSlaveBufferSize);
-        wsSend("READY:PUERTOS_OK");
-    }
-
-    // SPI MASTER SEND
-    if (cmd.startsWith("SPI_SEND:")) {
-        int f = cmd.indexOf(':');
-        String dataStr = cmd.substring(f+1);
-        
-        detachInterrupt(digitalPinToInterrupt(SPI_SCK_PIN));
-        SPI.begin(SPI_SCK_PIN, SPI_MISO_PIN, SPI_MOSI_PIN, SPI_CS_PIN); 
-        SPI.beginTransaction(SPISettings(activeSPIFreq, MSBFIRST, spi_modes[activeSPIMode]));
-        digitalWrite(SPI_CS_PIN, LOW);
-        
-        int start = 0;
-        for (int i = 0; i <= dataStr.length(); i++) {
-            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
-                String b = dataStr.substring(start, i);
-                if (b.length() > 0) SPI.transfer((uint8_t)strtol(b.c_str(), NULL, 16));
-                start = i + 1;
-            }
-        }
-        digitalWrite(SPI_CS_PIN, HIGH);
-        SPI.end();
-        pinMode(SPI_SCK_PIN, INPUT_PULLUP); //Pull up para evitar que funcione como antena y capte ruido que dispara la interrupción de forma aleatoria.
-        attachInterrupt(digitalPinToInterrupt(SPI_SCK_PIN), onSCKChange, CHANGE);
-        wsSend("SPI_TX_OK");
-    }
-       
-    // Llenar memoria del sensor virtual (I2C)
-    if (cmd.startsWith("SET_MEMORY:")) {
-        int reg = strtol(getParam(cmd, 1).c_str(), NULL, 16);
-        String dataStr = getParam(cmd, 2);
-        
-        int start = 0;
-        int ptr = reg;
-        for (int i = 0; i <= dataStr.length(); i++) {
-            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
-                String b = dataStr.substring(start, i);
-                if (b.length() > 0 && ptr < 256) {
-                    sensorMemory[ptr++] = (uint8_t)strtol(b.c_str(), NULL, 16);
-                }
-                start = i + 1;
-            }
-        }
-        wsSend("READY:PUERTOS_OK");
         return;
     }
 
@@ -749,6 +687,7 @@ void ejecutarComando(String cmd) {
         }
         
         pinMode(LED_I2C_AMARILLO, OUTPUT);
+        return;
     }
 
     // I2C: MAESTRO LEE 
@@ -776,24 +715,50 @@ void ejecutarComando(String cmd) {
         }        
         Wire.requestFrom((uint16_t)addr, (uint8_t)numBytes, true);
         
-        String readData = "";
-        char hexTemp[4];
-        while(Wire.available()) {
-            sprintf(hexTemp, "%02X,", Wire.read());
-            readData += hexTemp;
+        // Buffer estático para I2C
+        char readBuffer[256]; 
+        int len = 0;
+        
+        while(Wire.available() && len < 240) { 
+            len += snprintf(readBuffer + len, sizeof(readBuffer) - len, "%02X,", Wire.read());
         }
+        
         startSniffingI2C();
         
-        wsSend("I2C_RECV_BUF:" + addrStr + "," + regStr + "," + readData);
-        wsSend("I2C_READ_RES:" + readData);
+        wsSend("I2C_RECV_BUF:" + addrStr + "," + regStr + "," + String(readBuffer));
+        wsSend("I2C_READ_RES:" + String(readBuffer));
         pinMode(LED_I2C_AMARILLO, OUTPUT);
+        return;
+    }
+
+    // Llenar memoria del sensor virtual (I2C)
+    if (cmd.startsWith("SET_MEMORY:")) {
+        int reg = strtol(getParam(cmd, 1).c_str(), NULL, 16);
+        String dataStr = getParam(cmd, 2);
+        
+        int start = 0;
+        int ptr = reg;
+        for (int i = 0; i <= dataStr.length(); i++) {
+            if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
+                String b = dataStr.substring(start, i);
+                if (b.length() > 0 && ptr < 256) {
+                    sensorMemory[ptr++] = (uint8_t)strtol(b.c_str(), NULL, 16);
+                }
+                start = i + 1;
+            }
+        }
+        wsSend("READY:PUERTOS_OK");
+        return;
     }
 
     // SPI: ESCLAVO EMULADO
     if (cmd.startsWith("SPI_SLAVE_ON:")) {
         String dataStr = getParam(cmd, 1);
+        
+        Serial.println("[MODO ACTIVO] >>> Configurando Esclavo SPI Emulado...");
         spiSlaveBufferSize = 0;
         int start = 0;
+        
         for (int i = 0; i <= dataStr.length(); i++) {
             if (dataStr.charAt(i) == ',' || i == dataStr.length()) {
                 String b = dataStr.substring(start, i);
@@ -804,10 +769,14 @@ void ejecutarComando(String cmd) {
             }
         }
         
+        pinMode(SPI_MISO_PIN, OUTPUT); 
         spiSlaveMode = true;
         spiSlaveBytePtr = 0;
         spiSlaveBitPtr = 0;
+        
+        Serial.printf("[SISTEMA] >>> Modo Esclavo SPI Activo con %d bytes\n", spiSlaveBufferSize);
         wsSend("READY:PUERTOS_OK");
+        return; 
     }
 
     // SPI: MAESTRO SEND (Solo enviar, sin importar lo que reciba)
@@ -845,13 +814,14 @@ void ejecutarComando(String cmd) {
         
         // 5. Regresamos los pines a modo lectura segura para el sniffer
         pinMode(SPI_SCK_PIN, INPUT_PULLUP); 
-        pinMode(5, INPUT_PULLUP);
+        pinMode(SPI_CS_PIN, INPUT_PULLUP);
         
         // Reactivamos interrupciones
-        attachInterrupt(digitalPinToInterrupt(18), onSCKChange, CHANGE);
-        attachInterrupt(digitalPinToInterrupt(5), onCSChange, CHANGE);
+        attachInterrupt(digitalPinToInterrupt(SPI_SCK_PIN), onSCKChange, CHANGE);
+        attachInterrupt(digitalPinToInterrupt(SPI_CS_PIN), onCSChange, CHANGE);
         
         wsSend("SPI_TX_OK");
+        return;
     }
 
     // SPI: MAESTRO TRANSFERENCIA 
@@ -906,6 +876,7 @@ void ejecutarComando(String cmd) {
         
         wsSend("SPI_RECV_BUF:" + bufferGraph);
         pinMode(LED_SPI_AZUL, OUTPUT);
+        return;
     }
 }
 
@@ -1074,6 +1045,53 @@ void onI2CRequest() {
     i2cSlaveReqReady = true; // Levantamos la bandera para el loop
     
     currentRegister++;
+}
+
+// Función para encontrar el mejor canal Wi-Fi (1-13)
+int obtenerMejorCanalWiFi() {
+    Serial.println("[WiFi] >>> Escaneando espectro para buscar el canal más limpio...");
+    
+    // Ponemos el WiFi en modo estación temporalmente para escanear
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(100);
+
+    int n = WiFi.scanNetworks();
+    if (n == 0) {
+        Serial.println("[WiFi] >>> No se encontraron otras redes. Usando Canal 1.");
+        return 1; // Si no hay nadie, el 1 es ideal
+    }
+
+    // Cuántas redes hay en cada canal (1 al 13)
+    int usoDeCanales[14] = {0}; 
+    
+    for (int i = 0; i < n; ++i) {
+        int canal = WiFi.channel(i);
+        if(canal >= 1 && canal <= 13) {
+            usoDeCanales[canal]++;
+        }
+    }
+
+    // Buscar el canal con el menor número de redes
+    // Priorizamos los canales que no se solapan en 2.4GHz: 1, 6 y 11
+    int mejorCanal = 1;
+    int minRedes = usoDeCanales[1];
+
+    int canalesPreferidos[] = {1, 6, 11, 2, 3, 4, 5, 7, 8, 9, 10, 12, 13};
+    
+    for (int i = 0; i < 13; i++) {
+        int c = canalesPreferidos[i];
+        if (usoDeCanales[c] < minRedes) {
+            minRedes = usoDeCanales[c];
+            mejorCanal = c;
+        }
+    }
+
+    Serial.printf("[WiFi] >>> Escaneo completo. Mejor canal encontrado: %d (Redes detectadas ahí: %d)\n", mejorCanal, minRedes);
+    
+    // Liberar memoria del escaneo
+    WiFi.scanDelete();
+    return mejorCanal;
 }
 
 void manejarLEDs() {

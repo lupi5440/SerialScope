@@ -73,7 +73,7 @@ bool oldDeviceConnected = false;
 #define SENSOR_POLL_INTERVAL_MS    1000  // Cada cuánto hace "spam" de lectura a los sensores
 #define BLE_CHUNK_SIZE             20    // Tamaño máximo del paquete de envío Bluetooth
 #define BLE_MTU_SIZE               512   // Tamaño máximo de negociación Bluetooth
-#define BLE_SEND_DELAY_MS          30    // Pausa entre envío de fragmentos BLE
+#define BLE_SEND_DELAY_MS          3    // Pausa entre envío de fragmentos BLE
 #define UART_MAX_RX_BUFFER         256   // Límite de seguridad para lectura de UART
 
 // Parametros de la pantalla TFT PWM
@@ -378,19 +378,23 @@ void loop() {
         processTasks();
     }
 
-    // ESCUCHA UART (RECIBIR DEL SLAVE) 
-    // Si el Slave nos responde por el cable UART, lo notificamos por BLE
+    // ESCUCHA UART (RECIBIR DEL SLAVE - Buffer Estático)
     if (modoActual == UART_EMU && Serial2.available()) {
-        String uartIncoming = "";
-        uartIncoming.reserve(UART_MAX_RX_BUFFER); // Pre-asigna memoria, evita fragmentación
+        uint8_t rxBuffer[UART_MAX_RX_BUFFER + 1]; // +1 para el terminador nulo de impresión
+        int bytesRead = 0;
 
-        while(Serial2.available()) {
-            uartIncoming += (char)Serial2.read();
-            if (uartIncoming.length() >= UART_MAX_RX_BUFFER) break; // Límite de seguridad
+        // Leemos el buffer hacia la memoria estática segura
+        while(Serial2.available() && bytesRead < UART_MAX_RX_BUFFER) {
+            rxBuffer[bytesRead++] = Serial2.read();
         }
+        rxBuffer[bytesRead] = '\0'; // Convertimos el buffer en una cadena válida para imprimir
         
-        Serial.printf("[UART] >>> RX Slave: %s\n", uartIncoming.c_str());
-        bleSend(uartIncoming); 
+        Serial.printf("[UART] >>> RX Slave: %s\n", (char*)rxBuffer);
+        
+        // Enviamos el buffer crudo empaquetado a BLE
+        if (deviceConnected) {
+            bleSend(String((char*)rxBuffer)); 
+        }
     }
 
     delay(10);
@@ -416,9 +420,16 @@ String getParam(String data, int index) {
 void ejecutarComando(String cmd) {
     Serial.println("[BLE] >>> " + cmd);
     
-    // 1. PING
-    if (cmd == "PING") { 
-        bleSend("PONG"); 
+    // 1. PING con marca de tiempo para medición de latencia
+    if (cmd.startsWith("PING")) { 
+        String response = "PONG";
+        int separatorIdx = cmd.indexOf(':');
+        if (separatorIdx != -1) {
+            response += ":" + cmd.substring(separatorIdx + 1);
+        }
+        
+        bleSend(response);
+        
         digitalWrite(LED_STATUS_VERDE, HIGH);
         greenLedTurnOffTime = millis() + PING_LED_DURATION_MS;
         return; 
@@ -458,6 +469,7 @@ void ejecutarComando(String cmd) {
             Serial.println("[SISTEMA] >>> Configurando UART | Baud: " + String(baud) + " | Perfil: " + profile);
             bleSend("READY:UART");
             bleSend("RESULTADO: Iniciando envio UART a " + String(baud) + " baud...");
+            return;
 
         } else if (proto == "I2C") {
             String addrStr = getParam(cmd, 3);
@@ -472,12 +484,14 @@ void ejecutarComando(String cmd) {
 
             Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
             Wire.setClock(speed);
+            Wire.setTimeOut(25); // Si el bus se cuelga por más de 25ms, aborta la tarea automáticamente.
             actualizarLeds(I2C_EMU, blinks);
             digitalWrite(LED_STATUS_VERDE, LOW);
 
             Serial.println("[SISTEMA] >>> Configurando I2C | Addr: 0x" + String(i2cAddress, HEX) + " | Speed: " + String(speed/1000) + "kHz | Perfil: " + i2cProfile);
             bleSend("READY:I2C");
             bleSend("RESULTADO: Iniciando sondeo (" + i2cProfile + ") en 0x" + String(i2cAddress, HEX) + " a " + String(speed/1000) + " kHz...");
+            return;
 
         } else if (proto == "SPI") {
             digitalWrite(SPI_CS, HIGH); // Asegurar bus libre antes de empezar
@@ -542,6 +556,7 @@ void ejecutarComando(String cmd) {
         emulacionActiva = true;
         Serial.println("[SISTEMA] >>> Reanudando prueba...");
         bleSend("EMU_OK");
+        return;
     } else if (cmd.startsWith("EMU_MSG:")) {
         int f = cmd.indexOf(':');
         int s = cmd.indexOf(':', f+1);
@@ -573,14 +588,19 @@ void ejecutarComando(String cmd) {
                 hexBuffer.reserve(70); // Protege la RAM al construir la cadena larga (22 bytes * 3 chars/byte + comas)
 
                 if (Wire.available() == 22) {
+                    char hexBuffer[70]; // Buffer estático seguro
+                    int len = 0;
+                    
                     for (int i = 0; i < 22; i++) {
                         uint8_t b = Wire.read();
-                        if (b < 0x10) hexBuffer += "0";
-                        hexBuffer += String(b, HEX);
-                        if (i < 21) hexBuffer += ",";
+                        // snprintf empaqueta con ceros a la izquierda de forma segura y veloz
+                        len += snprintf(hexBuffer + len, sizeof(hexBuffer) - len, "%02X", b);
+                        if (i < 21) {
+                            len += snprintf(hexBuffer + len, sizeof(hexBuffer) - len, ",");
+                        }
                     }
-                    Serial.println("[OK] Calibración obtenida: " + hexBuffer);
-                    bleSend("RESULTADO:" + hexBuffer);
+                    Serial.print("[OK] Calibración obtenida: "); Serial.println(hexBuffer);
+                    bleSend("RESULTADO:" + String(hexBuffer));
                 }
             } 
 
@@ -630,7 +650,7 @@ void ejecutarComando(String cmd) {
     }
 }
 
-// Envía mensajes largos dividiéndolos en fragmentos compatibles con BLE (Max 20 caracteres)
+// Envía mensajes largos dividiéndolos en fragmentos estáticos (Max 20 caracteres)
 void bleSend(String texto) {
     if (deviceConnected) {
         String payload = texto + "\n";
@@ -639,8 +659,14 @@ void bleSend(String texto) {
         
         while (offset < totalLen) {
             int currentChunkSize = min(BLE_CHUNK_SIZE, totalLen - offset);
-            pTxCharacteristic->setValue((uint8_t*)(payload.c_str() + offset), currentChunkSize);
+            uint8_t chunkBuffer[BLE_CHUNK_SIZE];
+            
+            // Copiamos físicamente los bytes al buffer estático local
+            memcpy(chunkBuffer, payload.c_str() + offset, currentChunkSize);
+            
+            pTxCharacteristic->setValue(chunkBuffer, currentChunkSize);
             pTxCharacteristic->notify();
+            
             offset += currentChunkSize;
             delay(BLE_SEND_DELAY_MS);
         }
