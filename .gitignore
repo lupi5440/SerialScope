@@ -26,6 +26,7 @@ atmel_devices_lib.code-workspace
 PCB/fp-info-cache
 PCB/*-backups/
 
+
 # --- OS & Editors ---
 .DS_Store
 Thumbs.db
