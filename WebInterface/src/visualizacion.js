@@ -371,7 +371,7 @@ function generarBits(protocolo, bytes) {
         // Separación
         for (let i = 0; i < 4; i++) { rx.push(1); tx.push(1); sck.push(1); cs.push(1); }
     } else {
-        // UART ... (se mantiene igual)
+        // UART
         bytes.forEach(b => {
             let val = parseInt(b, 16);
             for (let i = 0; i < 3; i++) { rx.push(0); tx.push(1); } // Start bit
@@ -463,7 +463,7 @@ export function procesarEntradaAnalizador(linea) {
                 const mosiClean = mosiHex.toUpperCase().startsWith('0X') ? mosiHex.toUpperCase() : "0x" + mosiHex.toUpperCase();
                 const misoClean = misoHex.toUpperCase().startsWith('0X') ? misoHex.toUpperCase() : "0x" + misoHex.toUpperCase();
 
-                // NUEVO: Si estamos en modo Maestro, actualizar también el recuadro de resultados
+                // Si estamos en modo Maestro, actualizar también el recuadro de resultados
                 const currentProtocol = document.getElementById('protocoloSelect')?.value || "";
                 if (currentProtocol === 'SPI_MASTER') {
                     const resBox = document.getElementById('spiMasterResponse');
@@ -483,11 +483,11 @@ export function procesarEntradaAnalizador(linea) {
                 const misoSignals = generarBits("SPI", [misoClean]);
 
                 queueCH1.rx.push(...mosiSignals.rx);  // MOSI
-                queueCH1.tx.push(...misoSignals.rx);  // MISO (rx del generador de bits de miso)
+                queueCH1.tx.push(...misoSignals.rx);  // MISO
                 queueCH1.sck.push(...mosiSignals.sck); // SCK
                 queueCH1.cs.push(...mosiSignals.cs);   // CS
 
-                // 2. Tabla (Solo MOSI y MISO, según solicitud del usuario)
+                // 2. Tabla (Solo MOSI y MISO)
                 agregarFilaTabla(time, "MOSI", "SPI", mosiClean, "bg-primary");
                 agregarFilaTabla(time, "MISO", "SPI", misoClean, "bg-light text-dark border");
             }
@@ -706,9 +706,9 @@ export function actualizarConfiguracion(selectId) {
 
         if (chartCH1) {
             reconfigurarDatasets(chartCH1, [
-                { label: 'MOSI', color: '#808080' },    // MOSI (Gris)
-                { label: 'MISO', color: '#007bff' },   // MISO (Azul)
-                { label: 'SCK', color: '#999999' },   // SCK (Gris Visible)
+                { label: 'MISO', color: '#007bff' },   // MOSI (Azul)
+                { label: 'MOSI', color: '#999999' },   // MISO (Gris)
+                { label: 'SCK', color: '#101010' },    // SCK (negro pero en cable es blanco)
                 { label: 'CS', color: '#fd7e14' }      // CS (Naranja)
             ]);
         }
