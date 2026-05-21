@@ -706,9 +706,9 @@ export function actualizarConfiguracion(selectId) {
 
         if (chartCH1) {
             reconfigurarDatasets(chartCH1, [
-                { label: 'SCK', color: '#808080' },    // SCK (Gris)
-                { label: 'MOSI', color: '#007bff' },   // MOSI (Azul)
-                { label: 'MISO', color: '#999999' },   // MISO (Gris Visible)
+                { label: 'MOSI', color: '#808080' },    // MOSI (Gris)
+                { label: 'MISO', color: '#007bff' },   // MISO (Azul)
+                { label: 'SCK', color: '#999999' },   // SCK (Gris Visible)
                 { label: 'CS', color: '#fd7e14' }      // CS (Naranja)
             ]);
         }
