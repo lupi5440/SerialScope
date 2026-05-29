@@ -89,7 +89,8 @@ Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0.0+** debido al uso de las n
 ---
 
 ## ✍️ Autor
-[**Juan Angel Serrano Carreño**](https://github.com/lupi5440)  
+[**Juan Angel Serrano Carreño**](https://github.com/lupi5440) 
+[**Karla Patricia Pablo Ortega**](https://github.com/Karla789Pablo)
 *ESCOM - Instituto Politécnico Nacional*  
 *Ciudad de México, 2026*
 
