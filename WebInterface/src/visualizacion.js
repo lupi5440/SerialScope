@@ -56,14 +56,14 @@ export function initChart() {
     const canvas2 = document.getElementById('chartCH2');
     if (!canvas1 || !canvas2) return;
 
-    // IMPORTANTE: Destruir instancias previas si existen para evitar el error "Canvas is already in use"
+    // Destruir instancias previas
     if (chartCH1) chartCH1.destroy();
     if (chartCH2) chartCH2.destroy();
 
     chartCH1 = createOscilloscopeInstance(canvas1, "CH1", "#00f2ff", "#7000ff");
     chartCH2 = createOscilloscopeInstance(canvas2, "CH2", "#ff00ff", "#00ff00");
 
-    // Usar requestAnimationFrame para suavidad máxima
+    // Usar requestAnimationFrame para suavidad
     function renderLoop() {
         updateOscilloscopes();
         requestAnimationFrame(renderLoop);
@@ -139,7 +139,7 @@ function createOscilloscopeInstance(canvas, label, color1, color2) {
                         color: '#000',
                         boxWidth: 10,
                         font: { size: 10 },
-                        // Ocultar de la leyenda si no tiene texto (para canales no usados)
+                        // Filtro para canales no usados
                         filter: (item) => item.text !== ""
                     }
                 }
@@ -164,10 +164,10 @@ function updateOscilloscopes() {
 function shiftChart(chart, queue, proto) {
     if (!chart || !chart.data.datasets.length) return;
 
-    // Guardar en historial siempre
+    // Guardar en historial
     const hist = chart === chartCH1 ? historyCH1 : historyCH2;
 
-    // Lógica adaptativa: si hay muchos datos, procesamos más por frame para no retrasarnos
+    // Lógica adaptativa: si hay muchos datos, procesamos más por frame
     let samplesToProcess = 1;
     if (queue.rx.length > MAX_DISPLAY_POINTS * 2) samplesToProcess = 15;
     else if (queue.rx.length > MAX_DISPLAY_POINTS) samplesToProcess = 5;
@@ -202,11 +202,11 @@ function shiftChart(chart, queue, proto) {
             if (hist.sck) { hist.sck.shift(); hist.cs.shift(); }
         }
 
-        // Solo actualizar datos del chart si NO está pausado
+        // Actualizar datos del chart si no está pausado
         if (!isPaused) {
             chart.data.datasets.forEach((dataset, i) => {
                 dataset.data.shift();
-                let offset = i * 0.5; // Ajustado para 4 datasets
+                let offset = i * 0.5;
                 let val = (vals[i] !== undefined) ? vals[i] : 1;
                 dataset.data.push(val - offset);
             });
@@ -217,7 +217,7 @@ function shiftChart(chart, queue, proto) {
         chart.update('none');
     }
 
-    // Ocultar overlays si hay cualquier actividad (RX o TX)
+    // Ocultar overlays si hay cualquier actividad
     if (queue.rx.length > 0 || queue.tx.length > 0) {
         document.getElementById('overlay-ch1')?.classList.add('hidden');
         document.getElementById('overlay-ch2')?.classList.add('hidden');
@@ -239,7 +239,7 @@ window.togglePause = function () {
         btn.classList.replace('btn-success', 'btn-purple');
         nav.style.display = 'none';
         historyOffset = 0;
-        // Al reanudar, el chart se sincroniza solo en el siguiente frame
+        // Al reanudar, el chart se sincroniza en el siguiente frame
     }
 }
 
@@ -323,12 +323,11 @@ function generarBits(protocolo, bytes) {
     let cs = [];
 
     if (protocolo === 'I2C') {
-        // --- CONDICIÓN DE INICIO (START) ---
-        // Marcamos con un pulso en el canal de EVENTO
+        // CONDICIÓN DE INICIO (START)
         rx.push(1, 1, 0, 0);   // SDA cae
         tx.push(1, 1, 1, 1);   // SCL sigue alta
         sck.push(0, 0, 0, 0);  // Sin marca
-        cs.push(0, 1, 1, 0);   // ¡PULSO DE START!
+        cs.push(0, 1, 1, 0);   // PULSO DE START
 
         bytes.forEach(b => {
             let val = parseInt(b, 16);
@@ -346,11 +345,11 @@ function generarBits(protocolo, bytes) {
             cs.push(0, 0);
         });
 
-        // --- CONDICIÓN DE PARADA (STOP) ---
+        // CONDICIÓN DE PARADA (STOP)
         rx.push(0, 0, 1, 1);   // SDA sube
         tx.push(1, 1, 1, 1);   // SCL ya está alta
         sck.push(0, 0, 0, 0);
-        cs.push(0, 1, 1, 0);   // ¡PULSO DE STOP!
+        cs.push(0, 1, 1, 0);   // PULSO DE STOP
 
         // Espacio de separación entre paquetes
         for (let i = 0; i < 6; i++) { rx.push(1); tx.push(1); sck.push(1); cs.push(1); }
@@ -492,7 +491,7 @@ export function procesarEntradaAnalizador(linea) {
                 agregarFilaTabla(time, "MISO", "SPI", misoClean, "bg-light text-dark border");
             }
         } else {
-            // UART e I2C (procesamiento original)
+            // UART e I2C
             hexList.forEach((hex, i) => {
                 const cleanHex = hex.toUpperCase().startsWith('0X') ? hex.toUpperCase() : "0x" + hex.toUpperCase();
                 let esM2S = linea.includes(":M2S:");
@@ -530,7 +529,6 @@ export function procesarEntradaAnalizador(linea) {
             });
         }
 
-        // Wizard Intercepción
         if (activeWizard !== "NONE") procesarWizard(parts[0], hexList);
     }
 }
@@ -551,7 +549,7 @@ function agregarFilaTabla(time, direccion, proto, dato, badgeClass) {
         </tr>`;
         body.insertAdjacentHTML('afterbegin', row);
 
-        // OPTIMIZACIÓN: Limitar el número de filas en el DOM 
+        // Limitar número de filas
         if (body.rows.length > 100) {
             body.deleteRow(body.rows.length - 1);
         }

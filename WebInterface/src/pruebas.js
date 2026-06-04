@@ -55,7 +55,7 @@ class BLEProxy {
 
                     await this.txCharacteristic.startNotifications();
 
-                    // Limpiar listeners previos para no duplicar mensajes
+                    // Limpiar listeners 
                     this.txCharacteristic.removeEventListener('characteristicvaluechanged', this._boundHandleNotifications);
                     this._boundHandleNotifications = (e) => this.handleNotifications(e);
                     this.txCharacteristic.addEventListener('characteristicvaluechanged', this._boundHandleNotifications);
@@ -91,9 +91,9 @@ class BLEProxy {
 
         let lines = this.buffer.split('\n');
 
-        // Si hay líneas completas (terminan en \n), procésalas
+        // Si hay líneas completas (terminan en \n)
         if (lines.length > 1) {
-            this.buffer = lines.pop(); // Lo último se queda en el buffer por si está incompleto
+            this.buffer = lines.pop();
             for (let line of lines) {
                 line = line.trim();
                 if (line.length > 0 && this.onDataReceived) this.onDataReceived(line);
@@ -107,7 +107,7 @@ class BLEProxy {
                     if (this.onDataReceived) this.onDataReceived(this.buffer.trim());
                     this.buffer = "";
                 }
-            }, 500); // Aumentado para dar tiempo a recibir todos los trozos (chunks) BLE
+            }, 500);
         }
     }
 
@@ -120,7 +120,7 @@ class BLEProxy {
             await this.rxCharacteristic.writeValue(this.encoder.encode(data + "\n"));
         } catch (error) {
             console.error("Error envío (posible desconexión):", error);
-            this.handleDisconnect(); // Forzar actualización de UI si falla el envío
+            this.handleDisconnect();
         }
     }
 
@@ -155,7 +155,7 @@ export function conectarEmulador() {
         pingBtn.disabled = false;
         initBtn.disabled = false;
 
-        // Desbloquear panel de configuración interactivamente (quita visibilidad "borrosa" de Bootstrap)
+        // Desbloquear panel de configuración al conectarse
         const configPanel = document.getElementById('panel-config-emu');
         if (configPanel) {
             configPanel.classList.remove('opacity-50');
@@ -178,7 +178,7 @@ export function conectarEmulador() {
         pingBtn.disabled = true;
         initBtn.disabled = true;
 
-        // Bloquear panel de configuración (Restringir la UI de nuevo protectivamente)
+        // Bloquear panel de configuración 
         const configPanel = document.getElementById('panel-config-emu');
         if (configPanel) {
             configPanel.classList.add('opacity-50');
@@ -885,8 +885,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // === EVENT DELEGATION para controles TFT ===
-    // El listener se pone en el contenedor padre PERMANENTE (siempre en DOM).
-    // Así funciona aunque el innerHTML interno se destruya y recree.
     const fullWidthRow = document.getElementById('emu-full-width-config-row');
     if (fullWidthRow) {
         // Botón de enviar texto
