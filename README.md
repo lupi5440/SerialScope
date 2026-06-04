@@ -1,10 +1,9 @@
 # 🔬 SerialScope — Sistema de Análisis de Protocolos
 
-[![Version](https://img.shields.io/badge/Versión-3.0.0_Pro_Edition-9C27B0?style=for-the-badge)](https://github.com/lupi5440/SerialScope)
 [![Hardware](https://img.shields.io/badge/Hardware-ESP32-E67E22?style=for-the-badge&logo=espressif)](https://www.espressif.com/en/products/socs/esp32)
 [![Platform](https://img.shields.io/badge/Platform-Vite_/_WebSockets-646CFF?style=for-the-badge&logo=vite)](https://vitejs.dev/)
 
-**SerialScope** es un ecosistema avanzado de hardware y software diseñado para la visualización, análisis y emulación de protocolos de comunicación serial (**UART, I²C y SPI**). Esta versión 3.0 introduce capacidades de **Maestro Activo**, permitiendo interactuar con sensores reales (como el MAX6675) y emular dispositivos complejos directamente desde una interfaz web .
+**SerialScope** es un ecosistema de hardware y software diseñado para la visualización, análisis y emulación de protocolos de comunicación serial (**UART, I²C y SPI**). Esta introduce capacidades de **Maestro Activo**, permitiendo interactuar con sensores reales (como el MAX6675) y emular dispositivos complejos directamente desde una interfaz web .
 
 ---
 
@@ -42,7 +41,7 @@ graph TD
 
 ---
 
-## 🚀 Capacidades Pro V3
+## 🚀 Capacidades 
 
 ### ⚡ Protocolo SPI (Serial Peripheral Interface)
 - **Sniffing Pasivo:** Monitoreo en tiempo real de ráfagas MOSI/MISO sincronizadas con el reloj (SCK).
@@ -73,7 +72,7 @@ npm run dev
 Accede a `http://localhost:5173` para entrar al panel de control.
 
 ### Firmware (ESP32)
-Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0.0+** debido al uso de las nuevas APIs de PWM (`ledcAttach`). Puedes encontrar más información sobre este cambio [aquí](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/ledc.html).
+Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0.0+** debido al uso de las APIs de PWM (`ledcAttach`). Puedes encontrar más información sobre este cambio [aquí](https://docs.espressif.com/projects/arduino-esp32/en/latest/api/ledc.html).
 
 **Librerías Requeridas:**
 - `Adafruit GFX Library` (v1.11.9)
@@ -86,11 +85,4 @@ Es **CRÍTICO** utilizar el **ESP32 Arduino Core 3.0.0+** debido al uso de las n
 - **Arduino IDE**: 2.3.2+ o VS Code + PlatformIO.
 - **ESP32 Arduino Core**: 3.0.0 o superior.
 
----
-
-## ✍️ Autor
-[**Juan Angel Serrano Carreño**](https://github.com/lupi5440) 
-[**Karla Patricia Pablo Ortega**](https://github.com/Karla789Pablo)
-*ESCOM - Instituto Politécnico Nacional*  
-*Ciudad de México, 2026*
 
